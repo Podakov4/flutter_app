@@ -8,9 +8,9 @@ import '../core/api/auth_api.dart';
 import '../core/api/devices_api.dart';
 import '../core/api/profile_api.dart';
 import '../core/api/subscription_api.dart';
+import '../core/session/session_controller.dart';
 import '../core/storage/token_storage.dart';
 import '../features/access/application/connection_controller.dart';
-import '../core/session/session_controller.dart';
 import '../features/access/presentation/connection_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/devices/presentation/devices_screen.dart';
@@ -32,6 +32,7 @@ final AuthApi _authApi = AuthApi(
   apiClient: _apiClient,
   tokenStorage: _tokenStorage,
 );
+
 final ProfileApi _profileApi = ProfileApi(_apiClient);
 final AccessApi _accessApi = AccessApi(_apiClient);
 final DevicesApi _devicesApi = DevicesApi(_apiClient);
@@ -45,6 +46,7 @@ final SessionController sessionController = SessionController(
 
 final ConnectionController connectionController = ConnectionController(
   accessApi: _accessApi,
+  sessionController: sessionController,
 );
 
 final GoRouter appRouter = GoRouter(
@@ -152,7 +154,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/settings',
           builder: (BuildContext context, GoRouterState state) {
-            return SettingsScreen(sessionController: sessionController);
+            return SettingsScreen(
+              sessionController: sessionController,
+              connectionController: connectionController,
+            );
           },
         ),
         GoRoute(

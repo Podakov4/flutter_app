@@ -6,6 +6,11 @@ import '../../../core/models/connection_mode.dart';
 import '../../../core/models/connection_state.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/widgets/freeth_action_card.dart';
+import '../../../shared/widgets/freeth_hero_card.dart';
+import '../../../shared/widgets/freeth_info_row.dart';
+import '../../../shared/widgets/freeth_mode_card.dart';
+import '../../../shared/widgets/freeth_section_title.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../../access/application/connection_controller.dart';
 
@@ -72,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ]),
       builder: (BuildContext context, _) {
         final ClientProfile? client = widget.sessionController.client;
-        final connection = widget.connectionController;
+        final ConnectionController connection = widget.connectionController;
 
         final String fullName = (client?.fullName?.trim().isNotEmpty == true)
             ? client!.fullName!
@@ -108,25 +113,58 @@ class _HomeScreenState extends State<HomeScreen> {
                 constraints: const BoxConstraints(maxWidth: 760),
                 child: ListView(
                   children: <Widget>[
-                    _HeroCard(
+                    FreethHeroCard(
                       title: _heroTitle(client),
                       subtitle: _heroSubtitle(client),
-                      isActive: isActive,
-                      isPaid: isPaid,
-                      connectionStatus: status,
-                      onMainAction: !connection.canConnect || connection.isBusy
-                          ? null
-                          : () {
-                              if (connection.isConnected) {
-                                connection.disconnect();
-                              } else {
-                                connection.connect();
-                              }
-                            },
-                      onSecondaryAction: () => context.go('/access'),
+                      badges: <Widget>[
+                        StatusBadge(
+                          label: isActive ? 'Доступ готов' : 'Нужна активация',
+                          isPositive: isActive,
+                        ),
+                        StatusBadge(
+                          label: isPaid
+                              ? 'Подписка оплачена'
+                              : 'Проверьте подписку',
+                          isPositive: isPaid || isActive,
+                        ),
+                        StatusBadge(
+                          label: status.label,
+                          isPositive: status.isPositive,
+                        ),
+                      ],
+                      actions: <Widget>[
+                        FilledButton.icon(
+                          onPressed: !connection.canConnect || connection.isBusy
+                              ? null
+                              : () {
+                                  if (connection.isConnected) {
+                                    connection.disconnect();
+                                  } else {
+                                    connection.connect();
+                                  }
+                                },
+                          icon: Icon(
+                            connection.isConnected
+                                ? Icons.power_settings_new_rounded
+                                : Icons.play_arrow_rounded,
+                          ),
+                          label: Text(
+                            connection.isConnected
+                                ? 'Отключить'
+                                : connection.isBusy
+                                ? 'Подключение...'
+                                : 'Подключить',
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => context.go('/access'),
+                          icon: const Icon(Icons.tune_rounded),
+                          label: const Text('Открыть подключение'),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
-                    _SectionTitle(
+                    const FreethSectionTitle(
                       title: 'Сейчас в Freeth',
                       subtitle:
                           'Главный экран показывает не только профиль, но и живое состояние подключения.',
@@ -157,39 +195,39 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            _InfoRow(
+                            FreethInfoRow(
                               label: 'Локация',
                               value: connection.currentLocationTitle,
                             ),
                             const SizedBox(height: 8),
-                            _InfoRow(
+                            FreethInfoRow(
                               label: 'Маршрут',
                               value: connection.currentLocationSubtitle,
                             ),
                             const SizedBox(height: 8),
-                            _InfoRow(
+                            FreethInfoRow(
                               label: 'Сеть',
                               value: connection.networkLabel,
                             ),
                             const SizedBox(height: 8),
-                            _InfoRow(
+                            FreethInfoRow(
                               label: 'Порт',
                               value: connection.localPort.toString(),
                             ),
                             const SizedBox(height: 8),
-                            _InfoRow(label: 'Доступ до', value: paidUntil),
+                            FreethInfoRow(label: 'Доступ до', value: paidUntil),
                           ],
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _SectionTitle(
+                    const FreethSectionTitle(
                       title: 'Режим Freeth',
                       subtitle:
                           'Не просто список серверов, а понятный сценарий подключения.',
                     ),
                     const SizedBox(height: 12),
-                    _ModeCard(
+                    FreethModeCard(
                       title: mode.label,
                       subtitle: mode.subtitle,
                       icon: mode == ConnectionMode.smart
@@ -207,7 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           : 'Переключить на умный',
                     ),
                     const SizedBox(height: 16),
-                    _SectionTitle(
+                    const FreethSectionTitle(
                       title: 'Быстрые действия',
                       subtitle:
                           'Основные сценарии без перегруженного интерфейса.',
@@ -225,28 +263,28 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisSpacing: 12,
                           childAspectRatio: compact ? 2.4 : 1.9,
                           children: <Widget>[
-                            _ActionCard(
+                            FreethActionCard(
                               icon: Icons.power_settings_new_rounded,
                               title: 'Подключение',
                               subtitle:
                                   'Локации, режим, технические данные и текущее состояние.',
                               onTap: () => context.go('/access'),
                             ),
-                            _ActionCard(
+                            FreethActionCard(
                               icon: Icons.notes_rounded,
                               title: 'Журнал',
                               subtitle:
                                   'События подключения, предупреждения и восстановление канала.',
                               onTap: () => context.go('/logs'),
                             ),
-                            _ActionCard(
+                            FreethActionCard(
                               icon: Icons.devices_other_rounded,
                               title: 'Устройства',
                               subtitle:
                                   'Управление подключёнными устройствами и лимитами.',
                               onTap: () => context.go('/devices'),
                             ),
-                            _ActionCard(
+                            FreethActionCard(
                               icon: Icons.workspace_premium_outlined,
                               title: 'Подписка',
                               subtitle:
@@ -311,9 +349,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            _InfoRow(label: 'Имя', value: fullName),
+                            FreethInfoRow(label: 'Имя', value: fullName),
                             const SizedBox(height: 8),
-                            _InfoRow(label: 'Email', value: email),
+                            FreethInfoRow(label: 'Email', value: email),
                             const SizedBox(height: 16),
                             Wrap(
                               spacing: 12,
@@ -345,261 +383,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
-  }
-}
-
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.title,
-    required this.subtitle,
-    required this.isActive,
-    required this.isPaid,
-    required this.connectionStatus,
-    required this.onMainAction,
-    required this.onSecondaryAction,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool isActive;
-  final bool isPaid;
-  final ConnectionStatus connectionStatus;
-  final VoidCallback? onMainAction;
-  final VoidCallback onSecondaryAction;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
-
-    final String mainLabel = connectionStatus == ConnectionStatus.connected
-        ? 'Отключить'
-        : connectionStatus == ConnectionStatus.connecting ||
-              connectionStatus == ConnectionStatus.reconnecting
-        ? 'Подключение...'
-        : 'Подключить';
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            scheme.primaryContainer,
-            scheme.surfaceContainerHighest,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              StatusBadge(
-                label: isActive ? 'Доступ готов' : 'Нужна активация',
-                isPositive: isActive,
-              ),
-              StatusBadge(
-                label: isPaid ? 'Подписка оплачена' : 'Проверьте подписку',
-                isPositive: isPaid || isActive,
-              ),
-              StatusBadge(
-                label: connectionStatus.label,
-                isPositive: connectionStatus.isPositive,
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          Text(subtitle, style: const TextStyle(fontSize: 16, height: 1.45)),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              FilledButton.icon(
-                onPressed: onMainAction,
-                icon: Icon(
-                  connectionStatus == ConnectionStatus.connected
-                      ? Icons.power_settings_new_rounded
-                      : Icons.play_arrow_rounded,
-                ),
-                label: Text(mainLabel),
-              ),
-              OutlinedButton.icon(
-                onPressed: onSecondaryAction,
-                icon: const Icon(Icons.tune_rounded),
-                label: const Text('Открыть подключение'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          title,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: TextStyle(
-            height: 1.4,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ModeCard extends StatelessWidget {
-  const _ModeCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.onToggle,
-    required this.toggleLabel,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onToggle;
-  final String toggleLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Icon(icon),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(subtitle, style: const TextStyle(height: 1.4)),
-                  const SizedBox(height: 12),
-                  TextButton.icon(
-                    onPressed: onToggle,
-                    icon: const Icon(Icons.swap_horiz_rounded),
-                    label: Text(toggleLabel),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActionCard extends StatelessWidget {
-  const _ActionCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Icon(icon),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Text(
-                  subtitle,
-                  style: TextStyle(
-                    height: 1.35,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        SizedBox(
-          width: 110,
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-        Expanded(child: Text(value)),
-      ],
     );
   }
 }

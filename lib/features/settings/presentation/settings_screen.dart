@@ -1,29 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/models/client_profile.dart';
+import '../../../core/models/connection_mode.dart';
+import '../../../core/models/connection_state.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../shared/widgets/freeth_hero_card.dart';
+import '../../../shared/widgets/freeth_info_row.dart';
+import '../../../shared/widgets/freeth_section_title.dart';
 import '../../../shared/widgets/status_badge.dart';
+import '../../access/application/connection_controller.dart';
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, required this.sessionController});
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({
+    super.key,
+    required this.sessionController,
+    required this.connectionController,
+  });
 
   final SessionController sessionController;
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool _smartModeEnabled = true;
-  bool _autoSwitchOnNetworkChange = true;
-  bool _fallbackEnabled = true;
-  bool _showDetailedLogs = true;
-
-  void _showInfo(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
+  final ConnectionController connectionController;
 
   String _languageText(String? value) {
     switch ((value ?? '').toLowerCase()) {
@@ -64,13 +62,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final ClientProfile? client = widget.sessionController.client;
-
-    final bool isActive = client?.isActive == true;
-    final bool isPaid = client?.isPaid == true;
-
+  Future<void> _copyProfileSummary(
+    BuildContext context,
+    ClientProfile? client,
+  ) async {
     final String email = AppFormatters.fallback(
       client?.email,
       empty: 'не указан',
@@ -86,221 +81,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final String status = _statusText(client?.status);
     final String createdVia = _createdViaText(client?.createdVia);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Настройки')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: <Widget>[
-              _HeroCard(
-                isActive: isActive,
-                isPaid: isPaid,
-                onOpenProfile: () => context.go('/profile'),
-                onOpenSubscription: () => context.go('/subscription'),
-              ),
-              const SizedBox(height: 16),
-              _SectionTitle(
-                title: 'Поведение подключения',
-                subtitle:
-                    'Настройки будущего “умного” режима Freeth. Уже сейчас можно заложить правильную структуру экрана, а логику подключить постепенно.',
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Column(
-                  children: <Widget>[
-                    SwitchListTile.adaptive(
-                      title: const Text('Умный режим Freeth'),
-                      subtitle: const Text(
-                        'Приложение сможет само выбирать лучший маршрут и помогать при нестабильной сети.',
-                      ),
-                      value: _smartModeEnabled,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _smartModeEnabled = value;
-                        });
-                      },
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile.adaptive(
-                      title: const Text('Автопереключение при смене сети'),
-                      subtitle: const Text(
-                        'Подготовка к реакции на Wi-Fi / мобильную сеть без лишних действий со стороны пользователя.',
-                      ),
-                      value: _autoSwitchOnNetworkChange,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _autoSwitchOnNetworkChange = value;
-                        });
-                      },
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile.adaptive(
-                      title: const Text('Разрешить резервный маршрут'),
-                      subtitle: const Text(
-                        'Если основной канал деградирует, Freeth сможет переключиться на запасной сценарий.',
-                      ),
-                      value: _fallbackEnabled,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _fallbackEnabled = value;
-                        });
-                      },
-                    ),
-                    const Divider(height: 1),
-                    SwitchListTile.adaptive(
-                      title: const Text('Показывать подробный журнал'),
-                      subtitle: const Text(
-                        'Полезно для диагностики и поддержки. Позже можно будет открыть отдельный экран журнала.',
-                      ),
-                      value: _showDetailedLogs,
-                      onChanged: (bool value) {
-                        setState(() {
-                          _showDetailedLogs = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SectionTitle(
-                title: 'Аккаунт и доступ',
-                subtitle:
-                    'Здесь собраны ключевые параметры вашего профиля и состояние Freeth-аккаунта.',
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          StatusBadge(
-                            label: isActive
-                                ? 'Аккаунт активен'
-                                : 'Аккаунт не активен',
-                            isPositive: isActive,
-                          ),
-                          StatusBadge(
-                            label: isPaid
-                                ? 'Подписка оплачена'
-                                : 'Подписка не активна',
-                            isPositive: isPaid || isActive,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _InfoRow(label: 'Email', value: email),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Telegram ID', value: telegramId),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Public ID', value: publicId),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'ID доступа', value: accessId),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Статус', value: status),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Доступ до', value: paidUntil),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Язык', value: language),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Создан через', value: createdVia),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SectionTitle(
-                title: 'Быстрые разделы',
-                subtitle:
-                    'Переходы к важным частям приложения без перегруженного интерфейса.',
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: <Widget>[
-                      _NavTile(
-                        icon: Icons.person_outline_rounded,
-                        title: 'Профиль',
-                        subtitle:
-                            'Email, данные аккаунта и личный кабинет Freeth.',
-                        onTap: () => context.go('/profile'),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.workspace_premium_outlined,
-                        title: 'Подписка',
-                        subtitle: 'Статус доступа, срок действия и продление.',
-                        onTap: () => context.go('/subscription'),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.devices_other_rounded,
-                        title: 'Устройства',
-                        subtitle:
-                            'Управление подключёнными устройствами и лимитами.',
-                        onTap: () => context.go('/devices'),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.public_rounded,
-                        title: 'Подключение',
-                        subtitle:
-                            'Локации, доступ и технические данные подключения.',
-                        onTap: () => context.go('/access'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SectionTitle(
-                title: 'Поддержка и прозрачность',
-                subtitle:
-                    'Freeth должен быть не только удобным, но и понятным пользователю.',
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: <Widget>[
-                      _NavTile(
-                        icon: Icons.support_agent_rounded,
-                        title: 'Поддержка',
-                        subtitle:
-                            'Позже здесь можно открыть Telegram-поддержку или встроенный канал связи.',
-                        onTap: () => _showInfo(
-                          'Здесь можно будет открыть поддержку Freeth.',
-                        ),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.article_outlined,
-                        title: 'Журнал подключения',
-                        subtitle:
-                            'Следующий логичный шаг — отдельный экран журнала с событиями подключения.',
-                        onTap: () => _showInfo(
-                          'Журнал подключения лучше вынести в отдельный экран следующим этапом.',
-                        ),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.copy_all_outlined,
-                        title: 'Скопировать сведения о профиле',
-                        subtitle:
-                            'Удобно для поддержки и диагностики без лишнего шума.',
-                        onTap: () {
-                          final String summary =
-                              '''
+    final String summary =
+        '''
 Freeth profile
 Public ID: $publicId
 Telegram ID: $telegramId
@@ -311,170 +93,427 @@ Paid until: $paidUntil
 Language: $language
 Created via: $createdVia
 ''';
-                          _showInfo('Сводка профиля готова для копирования');
-                          Clipboard.setData(ClipboardData(text: summary));
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _SectionTitle(
-                title: 'Документы',
-                subtitle:
-                    'Юридические материалы должны быть доступны из настроек, а не спрятаны глубоко в приложении.',
-              ),
-              const SizedBox(height: 12),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: <Widget>[
-                      _NavTile(
-                        icon: Icons.description_outlined,
-                        title: 'Пользовательское соглашение',
-                        subtitle: 'Открыть документ.',
-                        onTap: () => context.push('/legal/user-agreement'),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.privacy_tip_outlined,
-                        title: 'Политика конфиденциальности',
-                        subtitle: 'Открыть документ.',
-                        onTap: () => context.push('/legal/privacy'),
-                      ),
-                      const Divider(height: 24),
-                      _NavTile(
-                        icon: Icons.payments_outlined,
-                        title: 'Политика возвратов',
-                        subtitle: 'Открыть документ.',
-                        onTap: () => context.push('/legal/refund'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => widget.sessionController.logout(),
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Выйти из аккаунта'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+
+    await Clipboard.setData(ClipboardData(text: summary));
+
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Сводка профиля скопирована')));
   }
-}
 
-class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.isActive,
-    required this.isPaid,
-    required this.onOpenProfile,
-    required this.onOpenSubscription,
-  });
-
-  final bool isActive;
-  final bool isPaid;
-  final VoidCallback onOpenProfile;
-  final VoidCallback onOpenSubscription;
+  void _showInfo(BuildContext context, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return AnimatedBuilder(
+      animation: Listenable.merge(<Listenable>[
+        sessionController,
+        connectionController,
+      ]),
+      builder: (BuildContext context, _) {
+        final ClientProfile? client = sessionController.client;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: <Color>[
-            scheme.primaryContainer,
-            scheme.surfaceContainerHighest,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: <Widget>[
-              StatusBadge(
-                label: isActive ? 'Freeth готов' : 'Нужна активация',
-                isPositive: isActive,
-              ),
-              StatusBadge(
-                label: isPaid ? 'Подписка активна' : 'Проверьте подписку',
-                isPositive: isPaid || isActive,
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'Настройки Freeth',
-            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Здесь можно управлять поведением приложения, открыть ключевые разделы и подготовить Freeth к более “умному” сценарию работы без копирования чужих клиентов.',
-            style: TextStyle(fontSize: 16, height: 1.45),
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: <Widget>[
-              FilledButton.icon(
-                onPressed: onOpenProfile,
-                icon: const Icon(Icons.person_outline_rounded),
-                label: const Text('Профиль'),
-              ),
-              OutlinedButton.icon(
-                onPressed: onOpenSubscription,
-                icon: const Icon(Icons.workspace_premium_outlined),
-                label: const Text('Подписка'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
+        final bool isActive = client?.isActive == true;
+        final bool isPaid = client?.isPaid == true;
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
+        final String email = AppFormatters.fallback(
+          client?.email,
+          empty: 'не указан',
+        );
+        final String telegramId = AppFormatters.fallback(client?.telegramId);
+        final String publicId = AppFormatters.fallback(client?.publicId);
+        final String accessId = AppFormatters.fallback(
+          client?.login,
+          empty: 'не указан',
+        );
+        final String paidUntil = AppFormatters.dateTime(client?.paidUntil);
+        final String language = _languageText(client?.defaultLanguage);
+        final String status = _statusText(client?.status);
+        final String createdVia = _createdViaText(client?.createdVia);
 
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          title,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: TextStyle(
-            height: 1.4,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        return Scaffold(
+          appBar: AppBar(title: const Text('Настройки')),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: <Widget>[
+                  FreethHeroCard(
+                    title: 'Настройки Freeth',
+                    subtitle:
+                        'Здесь можно управлять поведением подключения, поддержкой, журналом и ключевыми разделами приложения.',
+                    badges: <Widget>[
+                      StatusBadge(
+                        label: isActive ? 'Freeth готов' : 'Нужна активация',
+                        isPositive: isActive,
+                      ),
+                      StatusBadge(
+                        label: isPaid
+                            ? 'Подписка активна'
+                            : 'Проверьте подписку',
+                        isPositive: isPaid || isActive,
+                      ),
+                      StatusBadge(
+                        label: connectionController.mode.label,
+                        isPositive: true,
+                      ),
+                    ],
+                    actions: <Widget>[
+                      FilledButton.icon(
+                        onPressed: () => context.go('/profile'),
+                        icon: const Icon(Icons.person_outline_rounded),
+                        label: const Text('Профиль'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/subscription'),
+                        icon: const Icon(Icons.workspace_premium_outlined),
+                        label: const Text('Подписка'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const FreethSectionTitle(
+                    title: 'Поведение подключения',
+                    subtitle:
+                        'Эти параметры уже управляют живым ConnectionController, а не просто рисуют статические переключатели.',
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Column(
+                      children: <Widget>[
+                        SwitchListTile.adaptive(
+                          title: const Text('Умный режим Freeth'),
+                          subtitle: const Text(
+                            'Приложение само выбирает лучший маршрут. При отключении включается ручной режим.',
+                          ),
+                          value:
+                              connectionController.mode == ConnectionMode.smart,
+                          onChanged: (bool value) {
+                            if (value) {
+                              connectionController.setSmartMode();
+                            } else {
+                              connectionController.setManualMode();
+                            }
+                          },
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile.adaptive(
+                          title: const Text('Автопереключение при смене сети'),
+                          subtitle: const Text(
+                            'Если сеть меняется во время активного подключения, Freeth сможет мягко переподключиться.',
+                          ),
+                          value: connectionController.autoSwitchOnNetworkChange,
+                          onChanged:
+                              connectionController.setAutoSwitchOnNetworkChange,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile.adaptive(
+                          title: const Text('Разрешить резервный маршрут'),
+                          subtitle: const Text(
+                            'Если основной канал деградирует, Freeth сможет уйти в failover.',
+                          ),
+                          value: connectionController.fallbackEnabled,
+                          onChanged: connectionController.setFallbackEnabled,
+                        ),
+                        const Divider(height: 1),
+                        SwitchListTile.adaptive(
+                          title: const Text('Подробный журнал'),
+                          subtitle: const Text(
+                            'Сохранять и показывать более подробные события подключения.',
+                          ),
+                          value: connectionController.showDetailedLogs,
+                          onChanged: connectionController.setShowDetailedLogs,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const FreethSectionTitle(
+                    title: 'Текущее состояние',
+                    subtitle:
+                        'Короткая инженерная сводка по тому, что сейчас делает Freeth.',
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              StatusBadge(
+                                label: connectionController.status.label,
+                                isPositive:
+                                    connectionController.status.isPositive,
+                              ),
+                              StatusBadge(
+                                label: connectionController.canConnect
+                                    ? 'Доступ готов'
+                                    : 'Нужна активация',
+                                isPositive: connectionController.canConnect,
+                              ),
+                              StatusBadge(
+                                label: connectionController.subscriptionActive
+                                    ? 'Подписка активна'
+                                    : 'Проверьте подписку',
+                                isPositive:
+                                    connectionController.subscriptionActive ||
+                                    connectionController.canConnect,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          FreethInfoRow(
+                            label: 'Локация',
+                            value: connectionController.currentLocationTitle,
+                          ),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(
+                            label: 'Маршрут',
+                            value: connectionController.currentLocationSubtitle,
+                          ),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(
+                            label: 'Сеть',
+                            value: connectionController.networkLabel,
+                          ),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(
+                            label: 'Порт',
+                            value: connectionController.localPort.toString(),
+                          ),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(
+                            label: 'Сбои',
+                            value: connectionController.healthFailures
+                                .toString(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const FreethSectionTitle(
+                    title: 'Аккаунт и доступ',
+                    subtitle:
+                        'Ключевые параметры вашего Freeth-аккаунта в одном блоке.',
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: <Widget>[
+                              StatusBadge(
+                                label: isActive
+                                    ? 'Аккаунт активен'
+                                    : 'Аккаунт не активен',
+                                isPositive: isActive,
+                              ),
+                              StatusBadge(
+                                label: isPaid
+                                    ? 'Подписка оплачена'
+                                    : 'Подписка не активна',
+                                isPositive: isPaid || isActive,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          FreethInfoRow(label: 'Email', value: email),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(
+                            label: 'Telegram ID',
+                            value: telegramId,
+                          ),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(label: 'Public ID', value: publicId),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(label: 'ID доступа', value: accessId),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(label: 'Статус', value: status),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(label: 'Доступ до', value: paidUntil),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(label: 'Язык', value: language),
+                          const SizedBox(height: 8),
+                          FreethInfoRow(
+                            label: 'Создан через',
+                            value: createdVia,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const FreethSectionTitle(
+                    title: 'Быстрые разделы',
+                    subtitle:
+                        'Переходы к важным экранам приложения без перегруза интерфейса.',
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: <Widget>[
+                          _NavTile(
+                            icon: Icons.person_outline_rounded,
+                            title: 'Профиль',
+                            subtitle:
+                                'Личный кабинет, email и управление аккаунтом.',
+                            onTap: () => context.go('/profile'),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.workspace_premium_outlined,
+                            title: 'Подписка',
+                            subtitle: 'Статус доступа и продление.',
+                            onTap: () => context.go('/subscription'),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.devices_other_rounded,
+                            title: 'Устройства',
+                            subtitle:
+                                'Управление подключёнными устройствами и лимитами.',
+                            onTap: () => context.go('/devices'),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.public_rounded,
+                            title: 'Подключение',
+                            subtitle:
+                                'Локации, режим, журнал и технические данные.',
+                            onTap: () => context.go('/access'),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.notes_rounded,
+                            title: 'Журнал подключения',
+                            subtitle:
+                                'Полный экран событий подключения и восстановления канала.',
+                            onTap: () => context.go('/logs'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const FreethSectionTitle(
+                    title: 'Поддержка и прозрачность',
+                    subtitle:
+                        'Freeth должен быть не только удобным, но и понятным.',
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: <Widget>[
+                          _NavTile(
+                            icon: Icons.support_agent_rounded,
+                            title: 'Поддержка',
+                            subtitle:
+                                'Позже здесь можно открыть Telegram-поддержку или встроенный канал связи.',
+                            onTap: () => _showInfo(
+                              context,
+                              'Здесь можно будет открыть поддержку Freeth.',
+                            ),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.copy_all_outlined,
+                            title: 'Скопировать сведения о профиле',
+                            subtitle: 'Удобно для поддержки и диагностики.',
+                            onTap: () => _copyProfileSummary(context, client),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.warning_amber_rounded,
+                            title: 'Тест сбоя канала',
+                            subtitle:
+                                'Искусственно добавить health-failure в контроллер.',
+                            onTap: () =>
+                                connectionController.registerHealthFailure(),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.health_and_safety_outlined,
+                            title: 'Тест восстановления канала',
+                            subtitle:
+                                'Сбросить деградацию и отметить канал как восстановленный.',
+                            onTap: () =>
+                                connectionController.registerHealthSuccess(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const FreethSectionTitle(
+                    title: 'Документы',
+                    subtitle:
+                        'Юридические материалы должны быть доступны из настроек.',
+                  ),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: <Widget>[
+                          _NavTile(
+                            icon: Icons.description_outlined,
+                            title: 'Пользовательское соглашение',
+                            subtitle: 'Открыть документ.',
+                            onTap: () => context.push('/legal/user-agreement'),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.privacy_tip_outlined,
+                            title: 'Политика конфиденциальности',
+                            subtitle: 'Открыть документ.',
+                            onTap: () => context.push('/legal/privacy'),
+                          ),
+                          const Divider(height: 24),
+                          _NavTile(
+                            icon: Icons.payments_outlined,
+                            title: 'Политика возвратов',
+                            subtitle: 'Открыть документ.',
+                            onTap: () => context.push('/legal/refund'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => sessionController.logout(),
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Выйти из аккаунта'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
@@ -525,30 +564,6 @@ class _NavTile extends StatelessWidget {
           const Icon(Icons.chevron_right_rounded),
         ],
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        SizedBox(
-          width: 110,
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-        Expanded(child: Text(value)),
-      ],
     );
   }
 }
