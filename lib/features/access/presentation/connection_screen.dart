@@ -62,9 +62,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         final access = controller.access;
 
         if (controller.isLoading && access == null) {
-          return const Scaffold(
-            appBar: AppBar(title: Text('Подключение')),
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            appBar: AppBar(title: const Text('Подключение')),
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
