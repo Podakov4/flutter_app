@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/client_profile.dart';
 import '../../../core/session/session_controller.dart';
@@ -133,6 +134,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showInfoMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   String _statusText(String? status) {
     switch ((status ?? '').toLowerCase()) {
       case 'active':
@@ -172,6 +177,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _heroTitle(ClientProfile? client) {
+    if (client?.isActive == true && client?.isPaid == true) {
+      return 'Личный кабинет Freeth';
+    }
+    if (client?.isActive == true) {
+      return 'Доступ активен';
+    }
+    return 'Профиль Freeth';
+  }
+
+  String _heroSubtitle(ClientProfile? client) {
+    if (client?.isActive == true && client?.isPaid == true) {
+      return 'Управляйте аккаунтом, устройствами и подпиской из одного места.';
+    }
+    if (client?.isActive == true) {
+      return 'Аккаунт уже активен. Проверьте устройства, подписку и контактные данные.';
+    }
+    return 'Здесь собраны ваши данные аккаунта, контактные настройки и управление доступом.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final ClientProfile? client = widget.sessionController.client;
@@ -194,32 +219,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final String statusText = _statusText(client?.status);
     final String createdVia = _createdViaText(client?.createdVia);
     final String language = _languageText(client?.defaultLanguage);
+    final String publicId = AppFormatters.fallback(client?.publicId);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Профиль')),
+      appBar: AppBar(
+        title: const Text('Профиль'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Подписка',
+            onPressed: () => context.go('/subscription'),
+            icon: const Icon(Icons.workspace_premium_outlined),
+          ),
+        ],
+      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 760),
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: <Widget>[
-              const Text(
-                'Профиль',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+              _HeroCard(
+                title: _heroTitle(client),
+                subtitle: _heroSubtitle(client),
+                isActive: isActive,
+                isPaid: isPaid,
+                onDevices: () => context.go('/devices'),
+                onSubscription: () => context.go('/subscription'),
               ),
-              const SizedBox(height: 24),
-              _ProfileInfoCard(
-                title: 'Основная информация',
-                rows: <_ProfileRowData>[
-                  _ProfileRowData('Имя', fullName),
-                  _ProfileRowData('Telegram ID', telegramId),
-                  _ProfileRowData('ID доступа', accessId),
-                ],
+              const SizedBox(height: 16),
+              _SectionTitle(
+                title: 'Аккаунт',
+                subtitle:
+                    'Основная информация о вашем профиле Freeth и текущем статусе доступа.',
               ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: <Widget>[
+                          StatusBadge(
+                            label: isActive
+                                ? 'Аккаунт активен'
+                                : 'Аккаунт не активен',
+                            isPositive: isActive,
+                          ),
+                          StatusBadge(
+                            label: isPaid
+                                ? 'Подписка оплачена'
+                                : isActive
+                                ? 'Доступ без оплаты'
+                                : 'Подписка не активна',
+                            isPositive: isPaid || isActive,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _InfoRow(label: 'Имя', value: fullName),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'Telegram ID', value: telegramId),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'ID доступа', value: accessId),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'Public ID', value: publicId),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'Статус', value: statusText),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'Доступ до', value: paidUntil),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'Язык', value: language),
+                      const SizedBox(height: 8),
+                      _InfoRow(label: 'Создан через', value: createdVia),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _SectionTitle(
+                title: 'Контактные данные',
+                subtitle:
+                    'Email используется для входа в приложение, восстановления доступа и уведомлений.',
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -230,25 +319,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       if (!_isEditingEmail) ...<Widget>[
                         Text(
                           hasEmail
-                              ? 'Используется для входа в приложение и уведомлений. Сейчас: $currentEmail'
-                              : 'Email не привязан. Добавьте его для альтернативного входа и уведомлений.',
-                          style: const TextStyle(height: 1.4),
+                              ? 'Сейчас используется: $currentEmail'
+                              : 'Email пока не привязан. Добавьте его, чтобы использовать альтернативный вход и получать уведомления.',
+                          style: const TextStyle(height: 1.45),
                         ),
                         const SizedBox(height: 16),
-                        OutlinedButton(
-                          onPressed: _startEditingEmail,
-                          child: Text(
-                            hasEmail ? 'Изменить email' : 'Привязать email',
-                          ),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            OutlinedButton.icon(
+                              onPressed: _startEditingEmail,
+                              icon: const Icon(Icons.alternate_email_rounded),
+                              label: Text(
+                                hasEmail ? 'Изменить email' : 'Привязать email',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => _showInfoMessage(
+                                'Позже здесь можно добавить подтверждение email и дополнительные уведомления.',
+                              ),
+                              child: const Text('Подробнее'),
+                            ),
+                          ],
                         ),
                       ] else ...<Widget>[
                         const Text(
-                          'Введите новый email.',
-                          style: TextStyle(height: 1.4),
+                          'Введите новый email и сохраните изменения.',
+                          style: TextStyle(height: 1.45),
                         ),
                         const SizedBox(height: 16),
                         TextField(
@@ -290,57 +392,148 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              _SectionTitle(
+                title: 'Управление доступом',
+                subtitle:
+                    'Быстрые действия по подписке, устройствам и состоянию аккаунта.',
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final bool compact = constraints.maxWidth < 560;
+
+                  return GridView.count(
+                    crossAxisCount: compact ? 1 : 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: compact ? 2.4 : 1.9,
+                    children: <Widget>[
+                      _ActionCard(
+                        icon: Icons.workspace_premium_outlined,
+                        title: 'Подписка',
+                        subtitle:
+                            'Посмотреть срок действия и перейти к продлению доступа.',
+                        onTap: () => context.go('/subscription'),
+                      ),
+                      _ActionCard(
+                        icon: Icons.devices_other_rounded,
+                        title: 'Устройства',
+                        subtitle:
+                            'Управление подключёнными устройствами и лимитами.',
+                        onTap: () => context.go('/devices'),
+                      ),
+                      _ActionCard(
+                        icon: Icons.shield_outlined,
+                        title: 'Доступ',
+                        subtitle:
+                            'Открыть экран подключения и посмотреть локации.',
+                        onTap: () => context.go('/access'),
+                      ),
+                      _ActionCard(
+                        icon: Icons.logout_rounded,
+                        title: 'Выйти',
+                        subtitle: 'Завершить сессию на этом устройстве.',
+                        onTap: () => widget.sessionController.logout(),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              _SectionTitle(
+                title: 'Бонусы Freeth',
+                subtitle:
+                    'Рефералы, бонусные дни и промокоды можно развивать как отдельную часть продукта.',
+              ),
               const SizedBox(height: 12),
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       const Text(
-                        'Аккаунт',
+                        'Преимущества аккаунта',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: <Widget>[
-                          StatusBadge(
-                            label: isActive
-                                ? 'Аккаунт активен'
-                                : 'Аккаунт не активен',
-                            isPositive: isActive,
-                          ),
-                          StatusBadge(
-                            label: isPaid
-                                ? 'Платный период'
-                                : isActive
-                                ? 'Пробный или бесплатный период'
-                                : 'Без активной подписки',
-                            isPositive: isActive,
-                          ),
-                        ],
+                      const SizedBox(height: 12),
+                      const _BulletLine(
+                        text:
+                            'Реферальная программа уже поддерживается в экосистеме Freeth и может быть вынесена в приложение отдельным экраном.',
                       ),
-                      const SizedBox(height: 16),
-                      _InfoRow(label: 'Статус', value: statusText),
                       const SizedBox(height: 8),
-                      _InfoRow(label: 'Доступ до', value: paidUntil),
+                      const _BulletLine(
+                        text:
+                            'Бонусные дни, промокоды и персональные предложения логично показывать здесь, не смешивая их с настройками подключения.',
+                      ),
                       const SizedBox(height: 8),
-                      _InfoRow(label: 'Язык', value: language),
-                      const SizedBox(height: 8),
-                      _InfoRow(label: 'Создан через', value: createdVia),
+                      const _BulletLine(
+                        text:
+                            'Этот раздел можно развивать как “преимущества аккаунта”, а не как копию чужого VPN-приложения.',
+                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => widget.sessionController.logout(),
-                child: const Text('Выйти из аккаунта'),
+              const SizedBox(height: 16),
+              _SectionTitle(
+                title: 'Поддержка и документы',
+                subtitle:
+                    'Важные ссылки и базовые действия, которые не должны теряться в интерфейсе.',
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: <Widget>[
+                      _SettingsLikeTile(
+                        icon: Icons.support_agent_rounded,
+                        title: 'Поддержка',
+                        subtitle:
+                            'Связь с поддержкой Freeth и помощь по подключению.',
+                        onTap: () => _showInfoMessage(
+                          'Позже здесь можно открыть Telegram-поддержку или встроенный канал связи.',
+                        ),
+                      ),
+                      const Divider(height: 24),
+                      _SettingsLikeTile(
+                        icon: Icons.description_outlined,
+                        title: 'Пользовательское соглашение',
+                        subtitle: 'Открыть юридический документ.',
+                        onTap: () => context.push('/legal/user-agreement'),
+                      ),
+                      const Divider(height: 24),
+                      _SettingsLikeTile(
+                        icon: Icons.privacy_tip_outlined,
+                        title: 'Политика конфиденциальности',
+                        subtitle: 'Посмотреть политику обработки данных.',
+                        onTap: () => context.push('/legal/privacy'),
+                      ),
+                      const Divider(height: 24),
+                      _SettingsLikeTile(
+                        icon: Icons.payments_outlined,
+                        title: 'Политика возвратов',
+                        subtitle: 'Правила возврата и условий оплаты.',
+                        onTap: () => context.push('/legal/refund'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => widget.sessionController.logout(),
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Выйти из аккаунта'),
+                ),
               ),
             ],
           ),
@@ -350,34 +543,229 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _ProfileInfoCard extends StatelessWidget {
-  const _ProfileInfoCard({required this.title, required this.rows});
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
+    required this.title,
+    required this.subtitle,
+    required this.isActive,
+    required this.isPaid,
+    required this.onDevices,
+    required this.onSubscription,
+  });
 
   final String title;
-  final List<_ProfileRowData> rows;
+  final String subtitle;
+  final bool isActive;
+  final bool isPaid;
+  final VoidCallback onDevices;
+  final VoidCallback onSubscription;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            scheme.primaryContainer,
+            scheme.surfaceContainerHighest,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              StatusBadge(
+                label: isActive ? 'Аккаунт активен' : 'Нужна активация',
+                isPositive: isActive,
+              ),
+              StatusBadge(
+                label: isPaid ? 'Подписка оплачена' : 'Проверьте подписку',
+                isPositive: isPaid || isActive,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          Text(subtitle, style: const TextStyle(fontSize: 16, height: 1.45)),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: <Widget>[
+              FilledButton.icon(
+                onPressed: onSubscription,
+                icon: const Icon(Icons.workspace_premium_outlined),
+                label: const Text('Подписка'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onDevices,
+                icon: const Icon(Icons.devices_other_rounded),
+                label: const Text('Устройства'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          title,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: TextStyle(
+            height: 1.4,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            ...rows.map(
-              (row) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _InfoRow(label: row.label, value: row.value),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Icon(icon),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Expanded(
+                child: Text(
+                  subtitle,
+                  style: TextStyle(
+                    height: 1.35,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _SettingsLikeTile extends StatelessWidget {
+  const _SettingsLikeTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    height: 1.35,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Icon(Icons.chevron_right_rounded),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulletLine extends StatelessWidget {
+  const _BulletLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Text('• '),
+        Expanded(child: Text(text, style: const TextStyle(height: 1.4))),
+      ],
     );
   }
 }
@@ -394,7 +782,7 @@ class _InfoRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         SizedBox(
-          width: 150,
+          width: 110,
           child: Text(
             label,
             style: const TextStyle(fontWeight: FontWeight.w500),
@@ -404,11 +792,4 @@ class _InfoRow extends StatelessWidget {
       ],
     );
   }
-}
-
-class _ProfileRowData {
-  const _ProfileRowData(this.label, this.value);
-
-  final String label;
-  final String value;
 }

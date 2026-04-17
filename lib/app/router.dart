@@ -8,8 +8,9 @@ import '../core/api/auth_api.dart';
 import '../core/api/devices_api.dart';
 import '../core/api/profile_api.dart';
 import '../core/api/subscription_api.dart';
-import '../core/session/session_controller.dart';
 import '../core/storage/token_storage.dart';
+import '../features/access/application/connection_controller.dart';
+import '../core/session/session_controller.dart';
 import '../features/access/presentation/connection_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/devices/presentation/devices_screen.dart';
@@ -17,7 +18,9 @@ import '../features/home/presentation/home_screen.dart';
 import '../features/legal/presentation/privacy_policy_screen.dart';
 import '../features/legal/presentation/refund_policy_screen.dart';
 import '../features/legal/presentation/user_agreement_screen.dart';
+import '../features/logs/presentation/connection_log_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
 import '../features/subscription/presentation/subscription_screen.dart';
 import 'app_shell.dart';
 
@@ -38,6 +41,10 @@ final SessionController sessionController = SessionController(
   tokenStorage: _tokenStorage,
   profileApi: _profileApi,
   authApi: _authApi,
+);
+
+final ConnectionController connectionController = ConnectionController(
+  accessApi: _accessApi,
 );
 
 final GoRouter appRouter = GoRouter(
@@ -107,13 +114,24 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/home',
           builder: (BuildContext context, GoRouterState state) {
-            return HomeScreen(sessionController: sessionController);
+            return HomeScreen(
+              sessionController: sessionController,
+              connectionController: connectionController,
+            );
           },
         ),
         GoRoute(
           path: '/access',
           builder: (BuildContext context, GoRouterState state) {
-            return ConnectionScreen(accessApi: _accessApi);
+            return ConnectionScreen(connectionController: connectionController);
+          },
+        ),
+        GoRoute(
+          path: '/logs',
+          builder: (BuildContext context, GoRouterState state) {
+            return ConnectionLogScreen(
+              connectionController: connectionController,
+            );
           },
         ),
         GoRoute(
@@ -129,6 +147,12 @@ final GoRouter appRouter = GoRouter(
           path: '/profile',
           builder: (BuildContext context, GoRouterState state) {
             return ProfileScreen(sessionController: sessionController);
+          },
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (BuildContext context, GoRouterState state) {
+            return SettingsScreen(sessionController: sessionController);
           },
         ),
         GoRoute(

@@ -1,62 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/api/access_api.dart';
-import '../../../core/models/access_info.dart';
+import '../../../core/models/connection_mode.dart';
+import '../../../core/models/connection_state.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/status_badge.dart';
+import '../application/connection_controller.dart';
 import 'server_selection_screen.dart';
 
 class ConnectionScreen extends StatefulWidget {
-  const ConnectionScreen({super.key, required this.accessApi});
+  const ConnectionScreen({super.key, required this.connectionController});
 
-  final AccessApi accessApi;
+  final ConnectionController connectionController;
 
   @override
   State<ConnectionScreen> createState() => _ConnectionScreenState();
 }
 
 class _ConnectionScreenState extends State<ConnectionScreen> {
-  bool _isLoading = true;
-  String? _errorText;
-  AccessInfo? _access;
-
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _isLoading = true;
-      _errorText = null;
-    });
-
-    try {
-      final AccessInfo access = await widget.accessApi.getAccess();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _access = access;
-      });
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorText = 'Не удалось загрузить данные подключения';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    if (widget.connectionController.access == null &&
+        !widget.connectionController.isLoading) {
+      widget.connectionController.loadAccess();
     }
   }
 
@@ -72,7 +40,12 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     ).showSnackBar(SnackBar(content: Text('$label скопирована')));
   }
 
-  void _openServerSelection(AccessInfo access) {
+  void _openServerSelection() {
+    final access = widget.connectionController.access;
+    if (access == null) {
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ServerSelectionScreen(access: access),
@@ -80,201 +53,482 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     );
   }
 
-  Widget _buildServerPreview(AccessInfo access) {
-    if (!access.hasServerSelectionData) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildBody() {
+    return AnimatedBuilder(
+      animation: widget.connectionController,
+      builder: (BuildContext context, _) {
+        final controller = widget.connectionController;
+        final access = controller.access;
 
-    final List<AccessServerInfo> previewServers = access.servers.take(3).toList();
+        if (controller.isLoading && access == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const Text(
-              'Серверы',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        if (controller.lastError != null && access == null) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(controller.lastError!),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: controller.loadAccess,
+                  child: const Text('Повторить'),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Для автообновления конфигурации удобнее использовать подписочную ссылку. Для ручного подключения можно выбрать конкретный сервер.',
-              style: TextStyle(height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            if (previewServers.isEmpty)
-              const Text('Список серверов не загружен отдельно.')
-            else
-              ...previewServers.map(
-                (server) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        server.enabled ? '🟢 ' : '⚪ ',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          );
+        }
+
+        final ConnectionStatus status = controller.status;
+        final ConnectionMode mode = controller.mode;
+
+        final String expiresAt = AppFormatters.dateTime(access?.expiresAt);
+        final String type = AppFormatters.fallback(access?.type);
+        final String supports = access == null || access.supports.isEmpty
+            ? '—'
+            : access.supports.join(', ');
+
+        final String? subscriptionUrl = access?.subscriptionUrl;
+        final String? manualUrl = access?.manualUrl;
+        final List<String> manualUrls = access?.manualUrls ?? <String>[];
+
+        final bool hasSubscriptionUrl =
+            subscriptionUrl != null && subscriptionUrl.trim().isNotEmpty;
+        final bool hasManualUrl =
+            manualUrl != null && manualUrl.trim().isNotEmpty;
+        final bool hasManualUrls = manualUrls.isNotEmpty;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: ListView(
+              padding: const EdgeInsets.all(24),
+              children: <Widget>[
+                _HeroCard(
+                  status: status,
+                  canConnect: controller.canConnect,
+                  subscriptionActive: controller.subscriptionActive,
+                  isBusy: controller.isBusy,
+                  onConnectToggle: !controller.canConnect || controller.isBusy
+                      ? null
+                      : () {
+                          if (controller.isConnected) {
+                            controller.disconnect();
+                          } else {
+                            controller.connect();
+                          }
+                        },
+                  onReconnect: controller.isBusy ? null : controller.reconnect,
+                  onOpenLocations: access == null ? null : _openServerSelection,
+                ),
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Состояние подключения',
+                  subtitle:
+                      'Экран подключения отвечает за текущий статус, режим, локацию и рабочие действия.',
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
                           children: <Widget>[
-                            Text(
-                              (server.displayName?.trim().isNotEmpty == true)
-                                  ? server.displayName!
-                                  : (server.name?.trim().isNotEmpty == true)
-                                      ? server.name!
-                                      : server.code,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                            StatusBadge(
+                              label: status.label,
+                              isPositive: status.isPositive,
                             ),
-                            if ((server.domain ?? '').trim().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 2),
-                                child: Text(server.domain!),
-                              ),
+                            StatusBadge(label: mode.label, isPositive: true),
+                            StatusBadge(
+                              label: controller.subscriptionActive
+                                  ? 'Подписка активна'
+                                  : 'Проверьте подписку',
+                              isPositive:
+                                  controller.subscriptionActive ||
+                                  controller.canConnect,
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        _InfoRow(
+                          label: 'Локация',
+                          value: controller.currentLocationTitle,
+                        ),
+                        const SizedBox(height: 8),
+                        _InfoRow(
+                          label: 'Маршрут',
+                          value: controller.currentLocationSubtitle,
+                        ),
+                        const SizedBox(height: 8),
+                        _InfoRow(label: 'Сеть', value: controller.networkLabel),
+                        const SizedBox(height: 8),
+                        _InfoRow(
+                          label: 'Порт',
+                          value: controller.localPort.toString(),
+                        ),
+                        const SizedBox(height: 8),
+                        _InfoRow(label: 'Доступ до', value: expiresAt),
+                        const SizedBox(height: 8),
+                        _InfoRow(label: 'Тип', value: type),
+                        const SizedBox(height: 8),
+                        _InfoRow(label: 'Платформы', value: supports),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => _openServerSelection(access),
-              child: const Text('Выбрать сервер'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorText != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(_errorText!),
-            const SizedBox(height: 16),
-            FilledButton(onPressed: _load, child: const Text('Повторить')),
-          ],
-        ),
-      );
-    }
-
-    final AccessInfo? access = _access;
-
-    final bool enabled = access?.access == true;
-    final bool subscriptionActive = access?.subscriptionActive == true;
-    final String expiresAt = AppFormatters.dateTime(access?.expiresAt);
-    final String subscriptionUrl = AppFormatters.fallback(
-      access?.subscriptionUrl,
-    );
-    final String manualUrl = AppFormatters.fallback(access?.manualUrl);
-    final String supports = access == null || access.supports.isEmpty
-        ? '—'
-        : access.supports.join(', ');
-    final int serverCount = access?.servers.length ?? 0;
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
-          children: <Widget>[
-            const Text(
-              'Соединение',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 24),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Режим и локации',
+                  subtitle:
+                      'Freeth должен быть понятным: можно доверить маршрут приложению или выбрать локацию вручную.',
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        StatusBadge(
-                          label: AppFormatters.activeInactive(enabled),
-                          isPositive: enabled,
-                        ),
-                        StatusBadge(
-                          label: AppFormatters.subscriptionStatus(
-                            subscriptionActive,
+                        const Text(
+                          'Режим подключения',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
                           ),
-                          isPositive: subscriptionActive,
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: <Widget>[
+                            ChoiceChip(
+                              label: const Text('Умный режим'),
+                              selected: mode == ConnectionMode.smart,
+                              onSelected: (_) => controller.setSmartMode(),
+                            ),
+                            ChoiceChip(
+                              label: const Text('Ручной режим'),
+                              selected: mode == ConnectionMode.manual,
+                              onSelected: (_) => controller.setManualMode(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          mode.subtitle,
+                          style: const TextStyle(height: 1.4),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: access == null
+                              ? null
+                              : _openServerSelection,
+                          icon: const Icon(Icons.public_rounded),
+                          label: const Text('Открыть локации'),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    _InfoRow(label: 'Доступ до', value: expiresAt),
-                    const SizedBox(height: 8),
-                    _InfoRow(label: 'Тип', value: AppFormatters.fallback(access?.type)),
-                    const SizedBox(height: 8),
-                    _InfoRow(label: 'Платформы', value: supports),
-                    const SizedBox(height: 8),
-                    _InfoRow(label: 'Серверов', value: '$serverCount'),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: 'Подписочная ссылка',
-              subtitle:
-                  'Подходит для автоматического обновления конфигурации в приложениях-клиентах.',
-              value: subscriptionUrl,
-              selectable: true,
-              action: subscriptionUrl == '—'
-                  ? null
-                  : OutlinedButton(
-                      onPressed: () =>
-                          _copyText(subscriptionUrl, 'Подписочная ссылка'),
-                      child: const Text('Копировать'),
+                const SizedBox(height: 16),
+                _SectionTitle(
+                  title: 'Последние события',
+                  subtitle:
+                      'Полный журнал вынесен в отдельный экран, а здесь только краткая сводка.',
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (controller.logs.isEmpty)
+                          const Text(
+                            'Пока нет событий. Подключитесь или смените режим, чтобы журнал начал заполняться.',
+                          )
+                        else
+                          ...controller.logs.take(5).map((entry) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                '[${entry.levelLabel}] ${entry.message}',
+                                style: const TextStyle(height: 1.35),
+                              ),
+                            );
+                          }),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: <Widget>[
+                            OutlinedButton.icon(
+                              onPressed: () => context.go('/logs'),
+                              icon: const Icon(Icons.notes_rounded),
+                              label: const Text('Открыть журнал'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () =>
+                                  controller.registerHealthFailure(),
+                              icon: const Icon(Icons.warning_amber_rounded),
+                              label: const Text('Тест сбоя'),
+                            ),
+                            TextButton.icon(
+                              onPressed: controller.registerHealthSuccess,
+                              icon: const Icon(
+                                Icons.health_and_safety_outlined,
+                              ),
+                              label: const Text('Тест восстановления'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-            ),
-            const SizedBox(height: 12),
-            _InfoCard(
-              title: 'Быстрая ручная ссылка',
-              subtitle:
-                  'Базовая ссылка для подключения. Для выбора конкретной точки используйте список серверов ниже.',
-              value: manualUrl,
-              selectable: true,
-              action: manualUrl == '—'
-                  ? null
-                  : OutlinedButton(
-                      onPressed: () =>
-                          _copyText(manualUrl, 'Ручная ссылка'),
-                      child: const Text('Копировать'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 6,
                     ),
+                    childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                    title: const Text(
+                      'Технические данные подключения',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: const Text(
+                      'Для ручной настройки и продвинутого использования',
+                    ),
+                    children: <Widget>[
+                      if (hasSubscriptionUrl) ...<Widget>[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Подписочная ссылка',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SelectableText(subscriptionUrl!),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () =>
+                              _copyText(subscriptionUrl, 'Подписочная ссылка'),
+                          child: const Text('Копировать подписку'),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (hasManualUrl) ...<Widget>[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Быстрая ручная ссылка',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SelectableText(manualUrl!),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () =>
+                              _copyText(manualUrl, 'Ручная ссылка'),
+                          child: const Text('Копировать ручную ссылку'),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (hasManualUrls) ...<Widget>[
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Дополнительные ручные ссылки',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ...List<Widget>.generate(manualUrls.length, (
+                          int index,
+                        ) {
+                          final String value = manualUrls[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Expanded(child: SelectableText(value)),
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  tooltip: 'Копировать',
+                                  onPressed: () =>
+                                      _copyText(value, 'Ручная ссылка'),
+                                  icon: const Icon(Icons.copy_rounded),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                      if (!hasSubscriptionUrl &&
+                          !hasManualUrl &&
+                          !hasManualUrls)
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Технические данные пока недоступны.'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            if (access != null) _buildServerPreview(access),
-            const SizedBox(height: 24),
-            FilledButton(onPressed: _load, child: const Text('Обновить')),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Соединение')),
+      appBar: AppBar(title: const Text('Подключение')),
       body: _buildBody(),
+    );
+  }
+}
+
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
+    required this.status,
+    required this.canConnect,
+    required this.subscriptionActive,
+    required this.isBusy,
+    required this.onConnectToggle,
+    required this.onReconnect,
+    required this.onOpenLocations,
+  });
+
+  final ConnectionStatus status;
+  final bool canConnect;
+  final bool subscriptionActive;
+  final bool isBusy;
+  final VoidCallback? onConnectToggle;
+  final VoidCallback? onReconnect;
+  final VoidCallback? onOpenLocations;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
+    final String mainLabel = status == ConnectionStatus.connected
+        ? 'Отключить'
+        : isBusy
+        ? 'Подключение...'
+        : 'Подключить';
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[
+            scheme.primaryContainer,
+            scheme.surfaceContainerHighest,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: <Widget>[
+              StatusBadge(label: status.label, isPositive: status.isPositive),
+              StatusBadge(
+                label: canConnect ? 'Доступ готов' : 'Нужна активация',
+                isPositive: canConnect,
+              ),
+              StatusBadge(
+                label: subscriptionActive
+                    ? 'Подписка активна'
+                    : 'Проверьте подписку',
+                isPositive: subscriptionActive || canConnect,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'Управление подключением',
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Freeth объединяет статус, режим, локации и журнал в одном месте. Технические ссылки остаются доступны, но больше не доминируют в интерфейсе.',
+            style: TextStyle(fontSize: 16, height: 1.45),
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: <Widget>[
+              FilledButton.icon(
+                onPressed: onConnectToggle,
+                icon: Icon(
+                  status == ConnectionStatus.connected
+                      ? Icons.power_settings_new_rounded
+                      : Icons.play_arrow_rounded,
+                ),
+                label: Text(mainLabel),
+              ),
+              OutlinedButton.icon(
+                onPressed: onReconnect,
+                icon: const Icon(Icons.sync_rounded),
+                label: const Text('Переподключить'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onOpenLocations,
+                icon: const Icon(Icons.public_rounded),
+                label: const Text('Локации'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          title,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: TextStyle(
+            height: 1.4,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -288,6 +542,7 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         SizedBox(
           width: 96,
@@ -298,52 +553,6 @@ class _InfoRow extends StatelessWidget {
         ),
         Expanded(child: Text(value)),
       ],
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.title,
-    required this.value,
-    this.subtitle,
-    this.selectable = false,
-    this.action,
-  });
-
-  final String title;
-  final String value;
-  final String? subtitle;
-  final bool selectable;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            if (subtitle != null) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(subtitle!, style: const TextStyle(height: 1.4)),
-            ],
-            const SizedBox(height: 12),
-            selectable
-                ? SelectableText(value)
-                : Text(value, style: const TextStyle(fontSize: 16)),
-            if (action != null) ...<Widget>[
-              const SizedBox(height: 12),
-              action!,
-            ],
-          ],
-        ),
-      ),
     );
   }
 }
