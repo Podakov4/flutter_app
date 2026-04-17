@@ -3,6 +3,25 @@
         android:label="freeth_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+                package="com.freeth">  <!-- Убедись, что package соответствует твоему проекту -->
+
+            <application
+                android:label="Freeth"
+                android:icon="@mipmap/ic_launcher">
+
+                <!-- Регистрация VpnService -->
+                <service
+                    android:name=".MyVpnService"
+                    android:permission="android.permission.BIND_VPN_SERVICE">
+                    <intent-filter>
+                        <action android:name="android.net.VpnService" />
+                    </intent-filter>
+                </service>
+
+            </application>
+
+        </manifest>
         <activity
             android:name=".MainActivity"
             android:exported="true"
