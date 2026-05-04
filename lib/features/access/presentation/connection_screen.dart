@@ -97,11 +97,17 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             : access.supports.join(', ');
 
         final String? subscriptionUrl = access?.subscriptionUrl;
+        final String? happImportUrl = access?.happImportUrl;
+        final String? preferredHappUrl = access?.preferredHappUrl;
         final String? manualUrl = access?.manualUrl;
         final List<String> manualUrls = access?.manualUrls ?? <String>[];
 
-        final bool hasSubscriptionUrl =
+        final bool hasPreferredHappUrl =
+            preferredHappUrl != null && preferredHappUrl.trim().isNotEmpty;
+        final bool hasPlainSubscriptionUrl =
             subscriptionUrl != null && subscriptionUrl.trim().isNotEmpty;
+        final bool hasEncryptedHappUrl =
+            happImportUrl != null && happImportUrl.trim().isNotEmpty;
         final bool hasManualUrl =
             manualUrl != null && manualUrl.trim().isNotEmpty;
         final bool hasManualUrls = manualUrls.isNotEmpty;
@@ -435,24 +441,47 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                         'Для ручной настройки и продвинутого использования',
                       ),
                       children: <Widget>[
-                        if (hasSubscriptionUrl) ...<Widget>[
-                          const Align(
+                        if (hasPreferredHappUrl) ...<Widget>[
+                          Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              'Подписочная ссылка',
-                              style: TextStyle(fontWeight: FontWeight.w600),
+                              hasEncryptedHappUrl
+                                  ? 'Ссылка для Happ'
+                                  : 'Универсальная подписка',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 10),
-                          SelectableText(subscriptionUrl!),
+                          SelectableText(preferredHappUrl),
                           const SizedBox(height: 12),
                           OutlinedButton(
                             onPressed: () => _copyText(
-                              subscriptionUrl,
-                              'Подписочная ссылка',
+                              preferredHappUrl,
+                              hasEncryptedHappUrl
+                                  ? 'Ссылка для Happ'
+                                  : 'Подписочная ссылка',
                             ),
-                            child: const Text('Копировать подписку'),
+                            child: Text(
+                              hasEncryptedHappUrl
+                                  ? 'Копировать ссылку для Happ'
+                                  : 'Копировать подписку',
+                            ),
                           ),
+                          if (hasEncryptedHappUrl &&
+                              hasPlainSubscriptionUrl) ...<Widget>[
+                            const SizedBox(height: 12),
+                            Text(
+                              'Для Happ используйте эту encrypted-ссылку. Обычная подписка оставлена как технический fallback.',
+                              style: TextStyle(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
                         ],
                         if (hasManualUrl) ...<Widget>[
@@ -464,7 +493,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          SelectableText(manualUrl!),
+                          SelectableText(manualUrl),
                           const SizedBox(height: 12),
                           OutlinedButton(
                             onPressed: () =>
@@ -504,7 +533,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                             );
                           }),
                         ],
-                        if (!hasSubscriptionUrl &&
+                        if (!hasPreferredHappUrl &&
                             !hasManualUrl &&
                             !hasManualUrls)
                           const Align(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/models/access_info.dart';
 import '../../../core/models/connection_mode.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../shared/widgets/status_badge.dart';
@@ -27,7 +28,7 @@ class ServerSelectionScreen extends StatelessWidget {
     ).showSnackBar(SnackBar(content: Text('$label скопирована')));
   }
 
-  String _serverTitle(dynamic server) {
+  String _serverTitle(AccessServerInfo server) {
     if ((server.displayName ?? '').trim().isNotEmpty) {
       return server.displayName!;
     }
@@ -37,7 +38,7 @@ class ServerSelectionScreen extends StatelessWidget {
     return server.code.toUpperCase();
   }
 
-  String _serverSubtitle(dynamic server) {
+  String _serverSubtitle(AccessServerInfo server) {
     final String country = AppFormatters.fallback(
       server.countryCode,
       empty: 'Локация',
@@ -50,7 +51,7 @@ class ServerSelectionScreen extends StatelessWidget {
     return country;
   }
 
-  void _showServerDetails(BuildContext context, dynamic server) {
+  void _showServerDetails(BuildContext context, AccessServerInfo server) {
     final bool isCurrent =
         connectionController.currentServer?.code == server.code;
     final bool hasManualUrl = (server.manualUrl?.trim().isNotEmpty == true);
@@ -172,9 +173,9 @@ class ServerSelectionScreen extends StatelessWidget {
       animation: connectionController,
       builder: (BuildContext context, _) {
         final access = connectionController.access;
-        final servers = connectionController.availableServers;
-        final currentServer = connectionController.currentServer;
-        final mode = connectionController.mode;
+        final List<AccessServerInfo> servers = connectionController.allServers;
+        final AccessServerInfo? currentServer = connectionController.currentServer;
+        final ConnectionMode mode = connectionController.mode;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Локации')),

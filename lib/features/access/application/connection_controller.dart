@@ -81,9 +81,11 @@ class ConnectionController extends ChangeNotifier {
       _status == ConnectionStatus.reconnecting ||
       _isLoading;
 
+  List<AccessServerInfo> get allServers =>
+      _access?.servers ?? <AccessServerInfo>[];
+
   List<AccessServerInfo> get availableServers =>
-      _access?.servers.where((AccessServerInfo s) => s.enabled).toList() ??
-      <AccessServerInfo>[];
+      allServers.where((AccessServerInfo s) => s.enabled).toList();
 
   AccessServerInfo? get currentServer {
     final List<AccessServerInfo> servers = availableServers;
@@ -193,12 +195,7 @@ class ConnectionController extends ChangeNotifier {
 
       _initialized = true;
       _initializing = false;
-
-      if (_sessionController.status == SessionStatus.authenticated) {
-        unawaited(loadAccess());
-      } else {
-        _safeNotify();
-      }
+      _safeNotify();
     } catch (_) {
       _initializing = false;
       _lastError = 'Не удалось инициализировать состояние подключения';
@@ -209,6 +206,10 @@ class ConnectionController extends ChangeNotifier {
 
   Future<void> loadAccess() async {
     await initialize();
+
+    if (_isLoading) {
+      return;
+    }
 
     if (_sessionController.status != SessionStatus.authenticated) {
       _clearRuntimeState(keepPreferences: true);
