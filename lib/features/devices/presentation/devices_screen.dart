@@ -195,9 +195,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                     const SizedBox(height: 8),
                     Text('Текущее устройство: $currentDeviceName'),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Текущее устройство отмечено в списке ниже.',
-                    ),
+                    const Text('Текущее устройство отмечено в списке ниже.'),
                   ],
                 ),
               ),
@@ -229,6 +227,18 @@ class _DevicesScreenState extends State<DevicesScreen> {
 }
 
 class _DeviceCard extends StatelessWidget {
+  String _shortDeviceUid(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Не определено';
+    }
+
+    if (value.length <= 20) {
+      return value;
+    }
+
+    return '${value.substring(0, 12)}...${value.substring(value.length - 6)}';
+  }
+
   const _DeviceCard({
     required this.device,
     required this.isCurrent,
@@ -274,8 +284,8 @@ class _DeviceCard extends StatelessWidget {
                   label: isRevoked
                       ? 'Отозвано'
                       : isActive
-                          ? 'Активно'
-                          : 'Не активно',
+                      ? 'Активно'
+                      : 'Не активно',
                   isPositive: !isRevoked && isActive,
                 ),
               ],
@@ -293,6 +303,18 @@ class _DeviceCard extends StatelessWidget {
             _InfoRow(label: 'OS', value: osVersion),
             const SizedBox(height: 6),
             _InfoRow(label: 'Активность', value: lastSeenAt),
+            const SizedBox(height: 6),
+            _InfoRow(label: 'ID', value: _shortDeviceUid(device.deviceUid)),
+            const SizedBox(height: 6),
+            _InfoRow(
+              label: 'Добавлено',
+              value: AppFormatters.dateTime(device.createdAt),
+            ),
+            const SizedBox(height: 6),
+            _InfoRow(
+              label: 'Обновлено',
+              value: AppFormatters.dateTime(device.updatedAt),
+            ),
             if (!isRevoked) ...<Widget>[
               const SizedBox(height: 14),
               OutlinedButton(
