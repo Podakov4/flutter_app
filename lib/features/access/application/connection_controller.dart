@@ -9,6 +9,7 @@ import '../../../core/models/access_info.dart';
 import '../../../core/models/connection_mode.dart';
 import '../../../core/models/connection_state.dart';
 import '../../../core/session/session_controller.dart';
+import '../../../core/vpn/freeth_vpn_runtime.dart';
 import 'connection_log_entry.dart';
 
 class ConnectionController extends ChangeNotifier {
@@ -24,6 +25,7 @@ class ConnectionController extends ChangeNotifier {
   final AccessApi _accessApi;
   final SessionController _sessionController;
   final Connectivity _connectivity = Connectivity();
+  final FreethVpnRuntime _vpnRuntime = FreethVpnRuntime();
 
   static const String _modeKey = 'freeth.connection.mode';
   static const String _serverKey = 'freeth.connection.server';
@@ -251,6 +253,16 @@ class ConnectionController extends ChangeNotifier {
       return;
     }
 
+    final String? vlessUrl = _selectedVlessUrl();
+
+    if (vlessUrl == null) {
+      _lastError = 'Не найдена VLESS-ссылка для подключения';
+      _status = ConnectionStatus.error;
+      _logError(_lastError!);
+      _safeNotify();
+      return;
+    }
+
     _lastError = null;
     _status = _status == ConnectionStatus.connected
         ? ConnectionStatus.reconnecting
@@ -258,23 +270,48 @@ class ConnectionController extends ChangeNotifier {
     _safeNotify();
 
     _logInfo('Подключение к Freeth');
-    _logInfo('Порт VPN: $_localPort, режим: socks');
     _logInfo('Локация: $currentLocationTitle');
     _logInfo('Режим: ${_mode.label}');
+    _logInfo('Протокол: VLESS over sing-box');
 
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    _logInfo('connect: buildConfig=0ms');
+    try {
+      if (_vpnRuntime.isSupported) {
+        _logInfo('Android VPN: подготовка профиля sing-box');
 
-    await Future<void>.delayed(const Duration(milliseconds: 180));
-    _logInfo('connect: setup=3ms');
+        final bool started = await _vpnRuntime.start(
+          vlessUrl: vlessUrl,
+          profileName: 'Freeth • $currentLocationTitle',
+        );
 
-    await Future<void>.delayed(const Duration(milliseconds: 220));
-    _status = ConnectionStatus.connected;
-    _healthFailures = 0;
-    _logInfo('VPN подключён (порт $_localPort)');
-    _logInfo('Health monitor: запущен');
-    _startHealthMonitor();
-    _safeNotify();
+        if (!started) {
+          _lastError = 'Android VPN не был запущен';
+          _status = ConnectionStatus.error;
+          _logError(_lastError!);
+          _safeNotify();
+          return;
+        }
+
+        _logInfo('Android VPN: системный VPN-сервис запущен');
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        _logInfo('connect: buildConfig=0ms');
+        await Future<void>.delayed(const Duration(milliseconds: 180));
+        _logInfo('connect: setup=3ms');
+        await Future<void>.delayed(const Duration(milliseconds: 220));
+      }
+
+      _status = ConnectionStatus.connected;
+      _healthFailures = 0;
+      _logInfo('VPN подключён');
+      _logInfo('Health monitor: запущен');
+      _startHealthMonitor();
+      _safeNotify();
+    } catch (error) {
+      _lastError = 'Не удалось запустить VPN: $error';
+      _status = ConnectionStatus.error;
+      _logError(_lastError!);
+      _safeNotify();
+    }
   }
 
   Future<void> disconnect() async {
@@ -286,13 +323,27 @@ class ConnectionController extends ChangeNotifier {
     }
 
     _stopHealthMonitor();
-    _logInfo('Отключение от Freeth');
-    await Future<void>.delayed(const Duration(milliseconds: 150));
 
-    _status = ConnectionStatus.disconnected;
-    _healthFailures = 0;
-    _logInfo('VPN отключён');
-    _safeNotify();
+    _logInfo('Отключение от Freeth');
+
+    try {
+      if (_vpnRuntime.isSupported) {
+        await _vpnRuntime.stop();
+        _logInfo('Android VPN: системный VPN-сервис остановлен');
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+
+      _status = ConnectionStatus.disconnected;
+      _healthFailures = 0;
+      _logInfo('VPN отключён');
+      _safeNotify();
+    } catch (error) {
+      _lastError = 'Не удалось отключить VPN: $error';
+      _status = ConnectionStatus.error;
+      _logError(_lastError!);
+      _safeNotify();
+    }
   }
 
   Future<void> reconnect() async {
@@ -597,6 +648,32 @@ class ConnectionController extends ChangeNotifier {
       return server.name!;
     }
     return server.code.toUpperCase();
+  }
+
+  String? _selectedVlessUrl() {
+    final AccessServerInfo? server = currentServer;
+
+    final String? serverManualUrl = server?.manualUrl?.trim();
+    if (serverManualUrl != null && serverManualUrl.startsWith('vless://')) {
+      return serverManualUrl;
+    }
+
+    final String? accessManualUrl = _access?.manualUrl?.trim();
+    if (accessManualUrl != null && accessManualUrl.startsWith('vless://')) {
+      return accessManualUrl;
+    }
+
+    final List<String> manualUrls = _access?.manualUrls ?? const <String>[];
+
+    for (final String item in manualUrls) {
+      final String value = item.trim();
+
+      if (value.startsWith('vless://')) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   void _logInfo(String message) {
