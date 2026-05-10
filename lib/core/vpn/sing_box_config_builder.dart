@@ -6,21 +6,37 @@ class SingBoxConfigBuilder {
   Map<String, dynamic> buildFromVless(VlessUri vless) {
     final Map<String, dynamic> proxyOutbound = _buildVlessOutbound(vless);
 
+    final List<Map<String, dynamic>> dnsRules = <Map<String, dynamic>>[];
+
+    if (!_isIpLiteral(vless.server)) {
+      dnsRules.add(<String, dynamic>{
+        'domain': <String>[vless.server],
+        'server': 'dns-direct',
+      });
+    }
+
     return <String, dynamic>{
       'log': <String, dynamic>{
         'disabled': false,
         'level': 'info',
         'timestamp': true,
       },
+
       'dns': <String, dynamic>{
         'servers': <Map<String, dynamic>>[
-          <String, dynamic>{'tag': 'dns-local', 'type': 'local'},
+          <String, dynamic>{
+            'tag': 'dns-direct',
+            'type': 'udp',
+            'server': '1.1.1.1',
+            'server_port': 53,
+          },
         ],
-        'rules': <Map<String, dynamic>>[],
-        'final': 'dns-local',
+        'rules': dnsRules,
+        'final': 'dns-direct',
         'strategy': 'ipv4_only',
         'independent_cache': true,
       },
+
       'inbounds': <Map<String, dynamic>>[
         <String, dynamic>{
           'type': 'tun',
@@ -30,21 +46,31 @@ class SingBoxConfigBuilder {
           'auto_route': true,
           'strict_route': true,
           'stack': 'mixed',
+          'sniff': true,
           'sniff_override_destination': true,
         },
       ],
+
       'outbounds': <Map<String, dynamic>>[
         proxyOutbound,
-        <String, dynamic>{'type': 'direct', 'tag': 'direct'},
+        <String, dynamic>{
+          'type': 'direct',
+          'tag': 'direct',
+          'domain_strategy': 'ipv4_only',
+        },
+        <String, dynamic>{'type': 'dns', 'tag': 'dns-out'},
         <String, dynamic>{'type': 'block', 'tag': 'block'},
       ],
+
       'route': <String, dynamic>{
         'auto_detect_interface': true,
         'final': 'freeth-out',
         'rules': <Map<String, dynamic>>[
+          <String, dynamic>{'protocol': 'dns', 'outbound': 'dns-out'},
           <String, dynamic>{'ip_is_private': true, 'outbound': 'direct'},
         ],
       },
+
       'experimental': <String, dynamic>{
         'cache_file': <String, dynamic>{'enabled': true},
       },
@@ -58,6 +84,7 @@ class SingBoxConfigBuilder {
       'server': vless.server,
       'server_port': vless.port,
       'uuid': vless.uuid,
+      'domain_strategy': 'ipv4_only',
       'packet_encoding': 'xudp',
     };
 
@@ -84,7 +111,7 @@ class SingBoxConfigBuilder {
       };
 
       final String? host = vless.hostHeader;
-      if (host != null) {
+      if (host != null && host.isNotEmpty) {
         transport['headers'] = <String, dynamic>{'Host': host};
       }
 
@@ -92,5 +119,19 @@ class SingBoxConfigBuilder {
     }
 
     return outbound;
+  }
+
+  bool _isIpLiteral(String value) {
+    final String host = value.trim();
+
+    if (RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host)) {
+      return true;
+    }
+
+    if (host.contains(':') && RegExp(r'^[0-9a-fA-F:]+$').hasMatch(host)) {
+      return true;
+    }
+
+    return false;
   }
 }

@@ -47,7 +47,18 @@ class FreethVpnRuntime {
     _deleteOldRuntimeProfiles(manager);
 
     final int id = manager.generateProfileId;
-    final String path = await manager.getProfilePath(id);
+    final String profilePath = await manager.getProfilePath(id);
+
+    final io.Directory configDir = profilePath.endsWith('.json')
+        ? io.File(profilePath).parent
+        : io.Directory(profilePath);
+
+    await configDir.create(recursive: true);
+
+    final io.File usingConfigFile = io.File(
+      '${configDir.path}/using_config.json',
+    );
+    await usingConfigFile.writeAsString(jsonEncode(config));
 
     final sb.Profile profile = sb.Profile(
       id: id,
@@ -55,15 +66,30 @@ class FreethVpnRuntime {
       name: profileName.trim().isEmpty ? 'Freeth' : profileName.trim(),
       typed: sb.TypedProfile(
         type: sb.ProfileType.local,
-        path: path,
+        path: usingConfigFile.path,
         lastUpdated: DateTime.now().millisecondsSinceEpoch,
       ),
     );
 
-    await io.File(path).writeAsString(jsonEncode(config));
-
     manager.updateProfile(profile);
     manager.setSelectedProfile(id);
+
+    // Важно: native-часть flutter_sing_box читает именно эти MMKV-ключи.
+    final MMKV profileKv = MMKV(
+      'cs_profile',
+      mode: MMKVMode.MULTI_PROCESS_MODE,
+    );
+
+    profileKv.encodeInt('selected_profile_id', id);
+    profileKv.encodeString('using_config', configDir.path);
+
+    final MMKV settingsKv = MMKV(
+      'cs_settings',
+      mode: MMKVMode.MULTI_PROCESS_MODE,
+    );
+
+    settingsKv.encodeString('service_mode', 'vpn');
+    settingsKv.encodeInt('selected_profile', id);
 
     try {
       await sb.FlutterSingBox().stopVpn();

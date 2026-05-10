@@ -45,5 +45,7 @@ flutter {
 }
 
 dependencies {
+    implementation("com.tencent:mmkv:2.4.0")
+
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
