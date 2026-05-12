@@ -35,6 +35,7 @@ class ConnectionController extends ChangeNotifier {
 
   SharedPreferences? _prefs;
   StreamSubscription<dynamic>? _connectivitySubscription;
+  StreamSubscription<FreethVpnRuntimeSnapshot>? _vpnRuntimeSubscription;
   Timer? _healthTimer;
 
   bool _initialized = false;
@@ -56,6 +57,12 @@ class ConnectionController extends ChangeNotifier {
   bool _fallbackEnabled = true;
   bool _showDetailedLogs = true;
 
+  FreethVpnRuntimeState? _lastVpnRuntimeState;
+  int _uplink = 0;
+  int _downlink = 0;
+  int _uplinkTotal = 0;
+  int _downlinkTotal = 0;
+
   SessionStatus _lastSeenSessionStatus;
 
   final List<ConnectionLogEntry> _logs = <ConnectionLogEntry>[];
@@ -71,6 +78,19 @@ class ConnectionController extends ChangeNotifier {
   bool get autoSwitchOnNetworkChange => _autoSwitchOnNetworkChange;
   bool get fallbackEnabled => _fallbackEnabled;
   bool get showDetailedLogs => _showDetailedLogs;
+
+  int get uplink => _uplink;
+  int get downlink => _downlink;
+  int get uplinkTotal => _uplinkTotal;
+  int get downlinkTotal => _downlinkTotal;
+
+  String get trafficSummary {
+    return '↑ ${_formatBytes(_uplink)}/s  ↓ ${_formatBytes(_downlink)}/s';
+  }
+
+  String get trafficTotalSummary {
+    return '↑ ${_formatBytes(_uplinkTotal)}  ↓ ${_formatBytes(_downlinkTotal)}';
+  }
 
   List<ConnectionLogEntry> get logs =>
       List<ConnectionLogEntry>.unmodifiable(_logs);
@@ -195,6 +215,12 @@ class ConnectionController extends ChangeNotifier {
         }
       });
 
+      await _vpnRuntime.initialize();
+
+      _vpnRuntimeSubscription ??= _vpnRuntime.snapshots.listen(
+        _handleVpnRuntimeSnapshot,
+      );
+
       _initialized = true;
       _initializing = false;
       _safeNotify();
@@ -291,7 +317,9 @@ class ConnectionController extends ChangeNotifier {
           return;
         }
 
-        _logInfo('Android VPN: системный VPN-сервис запущен');
+        _logInfo('Android VPN: команда запуска отправлена, ждём Started');
+        _safeNotify();
+        return;
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 250));
         _logInfo('connect: buildConfig=0ms');
@@ -356,6 +384,61 @@ class ConnectionController extends ChangeNotifier {
     await disconnect();
     await Future<void>.delayed(const Duration(milliseconds: 200));
     await connect();
+  }
+
+  void _handleVpnRuntimeSnapshot(FreethVpnRuntimeSnapshot snapshot) {
+    _uplink = snapshot.uplink;
+    _downlink = snapshot.downlink;
+    _uplinkTotal = snapshot.uplinkTotal;
+    _downlinkTotal = snapshot.downlinkTotal;
+
+    final bool stateChanged = snapshot.state != _lastVpnRuntimeState;
+
+    if (stateChanged) {
+      _lastVpnRuntimeState = snapshot.state;
+
+      switch (snapshot.state) {
+        case FreethVpnRuntimeState.starting:
+          if (_status != ConnectionStatus.reconnecting) {
+            _status = ConnectionStatus.connecting;
+          }
+          _logInfo('Android VPN: Starting');
+          break;
+
+        case FreethVpnRuntimeState.started:
+          _status = ConnectionStatus.connected;
+          _lastError = null;
+          _healthFailures = 0;
+          _logInfo('Android VPN: Started');
+          _logInfo('VPN подключён');
+          _logInfo('Health monitor: запущен');
+          _startHealthMonitor();
+          break;
+
+        case FreethVpnRuntimeState.stopping:
+          _logInfo('Android VPN: Stopping');
+          break;
+
+        case FreethVpnRuntimeState.stopped:
+          _stopHealthMonitor();
+          _status = ConnectionStatus.disconnected;
+          _healthFailures = 0;
+          _logInfo('Android VPN: Stopped');
+          break;
+
+        case FreethVpnRuntimeState.error:
+          _stopHealthMonitor();
+          _status = ConnectionStatus.error;
+          _lastError = snapshot.message ?? 'Ошибка Android VPN runtime';
+          _logError(_lastError!);
+          break;
+
+        case FreethVpnRuntimeState.idle:
+          break;
+      }
+    }
+
+    _safeNotify();
   }
 
   Future<void> setSmartMode() async {
@@ -504,6 +587,8 @@ class ConnectionController extends ChangeNotifier {
   void dispose() {
     _sessionController.removeListener(_handleSessionChanged);
     _connectivitySubscription?.cancel();
+    _vpnRuntimeSubscription?.cancel();
+    unawaited(_vpnRuntime.dispose());
     _stopHealthMonitor();
     _isDisposed = true;
     super.dispose();
@@ -536,6 +621,11 @@ class ConnectionController extends ChangeNotifier {
     _healthFailures = 0;
     _isLoading = false;
     _localPort = 10807;
+    _lastVpnRuntimeState = null;
+    _uplink = 0;
+    _downlink = 0;
+    _uplinkTotal = 0;
+    _downlinkTotal = 0;
     _logs.clear();
 
     if (!keepPreferences) {
@@ -713,6 +803,25 @@ class ConnectionController extends ChangeNotifier {
         message: message,
       ),
     );
+  }
+
+  String _formatBytes(int value) {
+    if (value < 1024) {
+      return '$value B';
+    }
+
+    final double kb = value / 1024;
+    if (kb < 1024) {
+      return '${kb.toStringAsFixed(kb < 10 ? 1 : 0)} KB';
+    }
+
+    final double mb = kb / 1024;
+    if (mb < 1024) {
+      return '${mb.toStringAsFixed(mb < 10 ? 1 : 0)} MB';
+    }
+
+    final double gb = mb / 1024;
+    return '${gb.toStringAsFixed(gb < 10 ? 1 : 0)} GB';
   }
 
   String _formatTime(DateTime value) {
