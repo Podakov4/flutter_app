@@ -110,15 +110,18 @@ class ServerSelectionScreen extends StatelessWidget {
                           : 'Сейчас активен ручной режим',
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Данные для ручного подключения',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      title: const Text('Технические данные'),
+                      subtitle: const Text(
+                        'Ручная ссылка для диагностики и внешних клиентов.',
                       ),
+                      children: <Widget>[
+                        const SizedBox(height: 8),
+                        SelectableText(manualUrl),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    SelectableText(manualUrl),
                     const SizedBox(height: 16),
                     Wrap(
                       spacing: 12,
@@ -174,7 +177,8 @@ class ServerSelectionScreen extends StatelessWidget {
       builder: (BuildContext context, _) {
         final access = connectionController.access;
         final List<AccessServerInfo> servers = connectionController.allServers;
-        final AccessServerInfo? currentServer = connectionController.currentServer;
+        final AccessServerInfo? currentServer =
+            connectionController.currentServer;
         final ConnectionMode mode = connectionController.mode;
 
         return Scaffold(
@@ -192,7 +196,7 @@ class ServerSelectionScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           const Text(
-                            'Локации Freeth',
+                            'Локации',
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w700,
@@ -200,7 +204,7 @@ class ServerSelectionScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           const Text(
-                            'Здесь выбирается рабочая локация Freeth. В ручном режиме выбор фиксируется пользователем, а в умном режиме приложение позже сможет выбирать маршрут самостоятельно.',
+                            'Выберите страну или сервер для подключения.',
                             style: TextStyle(height: 1.45),
                           ),
                           const SizedBox(height: 16),

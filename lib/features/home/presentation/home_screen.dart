@@ -60,12 +60,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _heroSubtitle(ClientProfile? client) {
     if (client?.isActive == true && client?.isPaid == true) {
-      return 'Управляйте локацией, режимом и состоянием подключения из одного места.';
+      return 'Подключайтесь к Freeth и выбирайте нужную локацию в пару нажатий.';
     }
     if (client?.isActive == true) {
-      return 'Проверьте подключение, выберите локацию и начните работу.';
+      return 'Выберите локацию и подключитесь к Freeth.';
     }
-    return 'Сначала проверьте подписку и подготовьте подключение в пару нажатий.';
+    return 'Проверьте доступ и подключите Freeth.';
   }
 
   @override
@@ -165,9 +165,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 16),
                     const FreethSectionTitle(
-                      title: 'Сейчас в Freeth',
+                      title: 'Сейчас',
                       subtitle:
-                          'Главный экран показывает не только профиль, но и живое состояние подключения.',
+                          'Основное состояние подключения и выбранная локация.',
                     ),
                     const SizedBox(height: 12),
                     Card(
@@ -209,11 +209,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               label: 'Сеть',
                               value: connection.networkLabel,
                             ),
-                            const SizedBox(height: 8),
-                            FreethInfoRow(
-                              label: 'Порт',
-                              value: connection.localPort.toString(),
-                            ),
+
                             const SizedBox(height: 8),
                             FreethInfoRow(label: 'Доступ до', value: paidUntil),
                           ],
@@ -222,9 +218,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 16),
                     const FreethSectionTitle(
-                      title: 'Режим Freeth',
+                      title: 'Режим',
                       subtitle:
-                          'Не просто список серверов, а понятный сценарий подключения.',
+                          'Выберите автоматический или ручной сценарий подключения.',
                     ),
                     const SizedBox(height: 12),
                     FreethModeCard(

@@ -123,7 +123,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   FreethHeroCard(
                     title: 'Управление подключением',
                     subtitle:
-                        'Freeth объединяет статус, режим, локации и журнал в одном месте. Технические ссылки остаются доступны, но больше не доминируют в интерфейсе.',
+                        'Подключайтесь, выбирайте локацию и следите за состоянием Freeth.',
                     badges: <Widget>[
                       StatusBadge(
                         label: status.label,
@@ -184,9 +184,8 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                   ),
                   const SizedBox(height: 16),
                   const FreethSectionTitle(
-                    title: 'Состояние подключения',
-                    subtitle:
-                        'Экран подключения отвечает за текущий статус, режим, локацию и рабочие действия.',
+                    title: 'Состояние',
+                    subtitle: 'Текущий статус, локация и основные действия.',
                   ),
                   const SizedBox(height: 12),
                   Card(
@@ -232,12 +231,7 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                             value: controller.networkLabel,
                             labelWidth: 96,
                           ),
-                          const SizedBox(height: 8),
-                          FreethInfoRow(
-                            label: 'Порт',
-                            value: controller.localPort.toString(),
-                            labelWidth: 96,
-                          ),
+
                           const SizedBox(height: 8),
                           FreethInfoRow(
                             label: 'Доступ до',

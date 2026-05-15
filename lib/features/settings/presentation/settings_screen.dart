@@ -148,7 +148,7 @@ Created via: $createdVia
                   FreethHeroCard(
                     title: 'Настройки Freeth',
                     subtitle:
-                        'Здесь можно управлять поведением подключения, поддержкой, журналом и ключевыми разделами приложения.',
+                        'Основные настройки подключения, профиля и поддержки.',
                     badges: <Widget>[
                       StatusBadge(
                         label: isActive ? 'Freeth готов' : 'Нужна активация',
@@ -180,9 +180,9 @@ Created via: $createdVia
                   ),
                   const SizedBox(height: 16),
                   const FreethSectionTitle(
-                    title: 'Поведение подключения',
+                    title: 'Подключение',
                     subtitle:
-                        'Эти параметры уже управляют живым ConnectionController, а не просто рисуют статические переключатели.',
+                        'Настройте, как Freeth ведёт себя при смене сети и ошибках.',
                   ),
                   const SizedBox(height: 12),
                   Card(
@@ -191,7 +191,7 @@ Created via: $createdVia
                         SwitchListTile.adaptive(
                           title: const Text('Умный режим Freeth'),
                           subtitle: const Text(
-                            'Приложение само выбирает лучший маршрут. При отключении включается ручной режим.',
+                            'Freeth сам выбирает подходящий маршрут. При отключении локация выбирается вручную.',
                           ),
                           value:
                               connectionController.mode == ConnectionMode.smart,
@@ -217,7 +217,7 @@ Created via: $createdVia
                         SwitchListTile.adaptive(
                           title: const Text('Разрешить резервный маршрут'),
                           subtitle: const Text(
-                            'Если основной канал деградирует, Freeth сможет уйти в failover.',
+                            'Freeth сможет попробовать запасной маршрут, если основной недоступен.',
                           ),
                           value: connectionController.fallbackEnabled,
                           onChanged: connectionController.setFallbackEnabled,
