@@ -68,6 +68,89 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Проверьте доступ и подключите Freeth.';
   }
 
+  bool _isExpiringSoon(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return false;
+    }
+
+    final DateTime? paidUntil = DateTime.tryParse(value);
+
+    if (paidUntil == null) {
+      return false;
+    }
+
+    final DateTime now = DateTime.now();
+
+    return paidUntil.isAfter(now) &&
+        paidUntil.difference(now) <= const Duration(days: 7);
+  }
+
+  Widget? _subscriptionNotice(BuildContext context, ClientProfile? client) {
+    final bool isActive = client?.isActive == true;
+    final bool isPaid = client?.isPaid == true;
+    final bool expiringSoon = _isExpiringSoon(client?.paidUntil);
+
+    if (isActive && isPaid && !expiringSoon) {
+      return null;
+    }
+
+    final bool isWarning = isActive && isPaid && expiringSoon;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Icon(
+                  isWarning
+                      ? Icons.schedule_rounded
+                      : Icons.workspace_premium_outlined,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        isWarning
+                            ? 'Подписка скоро закончится'
+                            : 'Подписка не активна',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isWarning
+                            ? 'Доступ активен до ${AppFormatters.dateTime(client?.paidUntil)}.'
+                            : 'Продлите доступ, чтобы подключаться к Freeth.',
+                        style: TextStyle(
+                          height: 1.35,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: () => context.go('/subscription'),
+                icon: const Icon(Icons.workspace_premium_outlined),
+                label: Text(isWarning ? 'Продлить' : 'Оплатить'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -94,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final ConnectionStatus status = connection.status;
         final ConnectionMode mode = connection.mode;
+        final Widget? subscriptionNotice = _subscriptionNotice(context, client);
 
         return Scaffold(
           appBar: AppBar(
@@ -113,6 +197,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 constraints: const BoxConstraints(maxWidth: 760),
                 child: ListView(
                   children: <Widget>[
+                    if (subscriptionNotice != null) ...<Widget>[
+                      subscriptionNotice,
+                      const SizedBox(height: 16),
+                    ],
                     FreethHeroCard(
                       title: _heroTitle(client),
                       subtitle: _heroSubtitle(client),
