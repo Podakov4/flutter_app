@@ -53,6 +53,33 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     );
   }
 
+  Future<void> _showRenewDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Нужно продлить доступ'),
+          content: const Text(
+            'Чтобы подключиться к Freeth, продлите подписку.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Позже'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                context.go('/subscription');
+              },
+              child: const Text('Продлить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -146,9 +173,14 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                     ],
                     actions: <Widget>[
                       FilledButton.icon(
-                        onPressed: !controller.canConnect || controller.isBusy
+                        onPressed: controller.isBusy
                             ? null
                             : () {
+                                if (!controller.canConnect) {
+                                  _showRenewDialog();
+                                  return;
+                                }
+
                                 if (controller.isConnected) {
                                   controller.disconnect();
                                 } else {
