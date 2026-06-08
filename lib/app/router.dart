@@ -21,6 +21,8 @@ import '../features/legal/presentation/user_agreement_screen.dart';
 import '../features/logs/presentation/connection_log_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/split_tunnel/application/split_tunnel_controller.dart';
+import '../features/split_tunnel/presentation/split_tunnel_screen.dart';
 import '../features/subscription/presentation/subscription_screen.dart';
 import 'app_shell.dart';
 
@@ -44,9 +46,12 @@ final SessionController sessionController = SessionController(
   authApi: _authApi,
 );
 
+final SplitTunnelController splitTunnelController = SplitTunnelController();
+
 final ConnectionController connectionController = ConnectionController(
   accessApi: _accessApi,
   sessionController: sessionController,
+  splitTunnelController: splitTunnelController,
 );
 
 final GoRouter appRouter = GoRouter(
@@ -164,6 +169,15 @@ final GoRouter appRouter = GoRouter(
           path: '/subscription',
           builder: (BuildContext context, GoRouterState state) {
             return SubscriptionScreen(subscriptionApi: _subscriptionApi);
+          },
+        ),
+        GoRoute(
+          path: '/split-tunnel',
+          builder: (BuildContext context, GoRouterState state) {
+            return SplitTunnelScreen(
+              splitTunnelController: splitTunnelController,
+              connectionController: connectionController,
+            );
           },
         ),
       ],

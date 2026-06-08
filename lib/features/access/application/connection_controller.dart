@@ -10,20 +10,24 @@ import '../../../core/models/connection_mode.dart';
 import '../../../core/models/connection_state.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/vpn/freeth_vpn_runtime.dart';
+import '../../split_tunnel/application/split_tunnel_controller.dart';
 import 'connection_log_entry.dart';
 
 class ConnectionController extends ChangeNotifier {
   ConnectionController({
     required AccessApi accessApi,
     required SessionController sessionController,
+    required SplitTunnelController splitTunnelController,
   }) : _accessApi = accessApi,
        _sessionController = sessionController,
+       _splitTunnelController = splitTunnelController,
        _lastSeenSessionStatus = sessionController.status {
     _sessionController.addListener(_handleSessionChanged);
   }
 
   final AccessApi _accessApi;
   final SessionController _sessionController;
+  final SplitTunnelController _splitTunnelController;
   final Connectivity _connectivity = Connectivity();
   final FreethVpnRuntime _vpnRuntime = FreethVpnRuntime();
 
@@ -304,9 +308,11 @@ class ConnectionController extends ChangeNotifier {
       if (_vpnRuntime.isSupported) {
         _logInfo('Android VPN: подготовка профиля sing-box');
 
+        await _splitTunnelController.ensureInitialized();
         final bool started = await _vpnRuntime.start(
           vlessUrl: vlessUrl,
           profileName: 'Freeth • $currentLocationTitle',
+          splitTunnelConfig: _splitTunnelController.currentConfig,
         );
 
         if (!started) {

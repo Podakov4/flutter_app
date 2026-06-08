@@ -1,9 +1,13 @@
+import '../../core/models/split_tunnel_config.dart';
 import 'vless_uri.dart';
 
 class SingBoxConfigBuilder {
   const SingBoxConfigBuilder();
 
-  Map<String, dynamic> buildFromVless(VlessUri vless) {
+  Map<String, dynamic> buildFromVless(
+    VlessUri vless, {
+    SplitTunnelConfig? splitTunnelConfig,
+  }) {
     final Map<String, dynamic> proxyOutbound = _buildVlessOutbound(vless);
 
     final List<Map<String, dynamic>> dnsRules = <Map<String, dynamic>>[];
@@ -13,6 +17,31 @@ class SingBoxConfigBuilder {
         'domain': <String>[vless.server],
         'server': 'dns-direct',
       });
+    }
+
+    final List<Map<String, dynamic>> routeRules = <Map<String, dynamic>>[
+      <String, dynamic>{'protocol': 'dns', 'outbound': 'dns-out'},
+      <String, dynamic>{'ip_is_private': true, 'outbound': 'direct'},
+    ];
+
+    String routeFinal = 'freeth-out';
+
+    if (splitTunnelConfig != null && splitTunnelConfig.isActive) {
+      final List<String> packages = splitTunnelConfig.packages;
+      if (splitTunnelConfig.mode == SplitTunnelMode.includeOnly) {
+        // Only selected apps → VPN; everything else → direct.
+        routeRules.add(<String, dynamic>{
+          'package_name': packages,
+          'outbound': 'freeth-out',
+        });
+        routeFinal = 'direct';
+      } else {
+        // SplitTunnelMode.excludeOnly: selected apps → direct; rest → VPN.
+        routeRules.add(<String, dynamic>{
+          'package_name': packages,
+          'outbound': 'direct',
+        });
+      }
     }
 
     return <String, dynamic>{
@@ -64,11 +93,8 @@ class SingBoxConfigBuilder {
 
       'route': <String, dynamic>{
         'auto_detect_interface': true,
-        'final': 'freeth-out',
-        'rules': <Map<String, dynamic>>[
-          <String, dynamic>{'protocol': 'dns', 'outbound': 'dns-out'},
-          <String, dynamic>{'ip_is_private': true, 'outbound': 'direct'},
-        ],
+        'final': routeFinal,
+        'rules': routeRules,
       },
 
       'experimental': <String, dynamic>{

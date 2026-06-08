@@ -5,6 +5,7 @@ import 'dart:io' as io;
 import 'package:flutter_sing_box/flutter_sing_box.dart' as sb;
 import 'package:mmkv/mmkv.dart';
 
+import '../../core/models/split_tunnel_config.dart';
 import 'freeth_vpn_runtime_models.dart';
 import 'sing_box_config_builder.dart';
 import 'vless_uri.dart';
@@ -76,6 +77,7 @@ class FreethVpnRuntime {
   Future<bool> start({
     required String vlessUrl,
     required String profileName,
+    SplitTunnelConfig? splitTunnelConfig,
   }) async {
     if (!isSupported) {
       return false;
@@ -93,7 +95,7 @@ class FreethVpnRuntime {
     try {
       final VlessUri vless = VlessUri.parse(vlessUrl);
       final Map<String, dynamic> config = const SingBoxConfigBuilder()
-          .buildFromVless(vless);
+          .buildFromVless(vless, splitTunnelConfig: splitTunnelConfig);
 
       final sb.ProfileManager manager = sb.ProfileManager();
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../core/models/split_tunnel_config.dart';
 import 'freeth_vpn_runtime_models.dart';
 
 class FreethVpnRuntime {
@@ -22,6 +23,7 @@ class FreethVpnRuntime {
   Future<bool> start({
     required String vlessUrl,
     required String profileName,
+    SplitTunnelConfig? splitTunnelConfig,
   }) async {
     return false;
   }
