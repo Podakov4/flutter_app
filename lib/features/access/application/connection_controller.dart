@@ -421,8 +421,12 @@ class ConnectionController extends ChangeNotifier {
 
         case FreethVpnRuntimeState.stopped:
           _stopHealthMonitor();
-          _status = ConnectionStatus.disconnected;
-          _healthFailures = 0;
+          // Do not overwrite reconnecting: reconnect() calls disconnect() which
+          // triggers this event, but the flow continues into connect() afterwards.
+          if (_status != ConnectionStatus.reconnecting) {
+            _status = ConnectionStatus.disconnected;
+            _healthFailures = 0;
+          }
           _logInfo('Android VPN: Stopped');
           break;
 
@@ -559,7 +563,14 @@ class ConnectionController extends ChangeNotifier {
         _logInfo('Порт VPN изменился → $_localPort');
         _safeNotify();
 
-        await reconnect();
+        try {
+          await reconnect();
+        } catch (error) {
+          _lastError = 'Ошибка при переподключении: $error';
+          _status = ConnectionStatus.error;
+          _logError(_lastError!);
+          _safeNotify();
+        }
       } else {
         _logWarning('Основной канал недоступен, но резервный маршрут отключён');
         _safeNotify();

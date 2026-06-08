@@ -19,6 +19,9 @@ class FreethVpnRuntimeSnapshot {
   final bool trafficAvailable;
   final String? message;
 
+  // Sentinel used by copyWith to distinguish "pass null to clear" from "omit".
+  static const Object _absent = Object();
+
   FreethVpnRuntimeSnapshot copyWith({
     FreethVpnRuntimeState? state,
     int? uplink,
@@ -26,7 +29,7 @@ class FreethVpnRuntimeSnapshot {
     int? uplinkTotal,
     int? downlinkTotal,
     bool? trafficAvailable,
-    String? message,
+    Object? message = _absent,
   }) {
     return FreethVpnRuntimeSnapshot(
       state: state ?? this.state,
@@ -35,7 +38,7 @@ class FreethVpnRuntimeSnapshot {
       uplinkTotal: uplinkTotal ?? this.uplinkTotal,
       downlinkTotal: downlinkTotal ?? this.downlinkTotal,
       trafficAvailable: trafficAvailable ?? this.trafficAvailable,
-      message: message ?? this.message,
+      message: identical(message, _absent) ? this.message : message as String?,
     );
   }
 }

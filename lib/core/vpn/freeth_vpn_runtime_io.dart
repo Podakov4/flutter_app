@@ -33,7 +33,7 @@ class FreethVpnRuntime {
 
   FreethVpnRuntimeSnapshot get currentSnapshot => _snapshot;
 
-  static Future<void> ensureInitialized() async {
+  static Future<void> ensureInitialized(sb.FlutterSingBox singBox) async {
     if (_initialized) {
       return;
     }
@@ -44,13 +44,13 @@ class FreethVpnRuntime {
     }
 
     await MMKV.initialize();
-    await sb.FlutterSingBox().init();
+    await singBox.init();
 
     _initialized = true;
   }
 
   Future<void> initialize() async {
-    await ensureInitialized();
+    await ensureInitialized(_singBox);
 
     if (!isSupported) {
       return;

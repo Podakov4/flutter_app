@@ -17,9 +17,12 @@ class SubscriptionApi {
       response.data as Map,
     );
 
-    return SubscriptionInfo.fromJson(
-      Map<String, dynamic>.from(data['subscription'] as Map),
-    );
+    final dynamic raw = data['subscription'];
+    if (raw == null) {
+      throw StateError('Сервер не вернул данные подписки');
+    }
+
+    return SubscriptionInfo.fromJson(Map<String, dynamic>.from(raw as Map));
   }
 
   Future<String> createCheckout({required int months}) async {
@@ -32,6 +35,11 @@ class SubscriptionApi {
       response.data as Map,
     );
 
-    return (data['payment_url'] as String?) ?? '';
+    final String? paymentUrl = data['payment_url'] as String?;
+    if (paymentUrl == null || paymentUrl.isEmpty) {
+      throw StateError('Сервер не вернул ссылку на оплату');
+    }
+
+    return paymentUrl;
   }
 }

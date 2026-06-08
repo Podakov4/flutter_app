@@ -70,7 +70,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop();
-                context.go('/subscription');
+                if (mounted) {
+                  context.go('/subscription');
+                }
               },
               child: const Text('Продлить'),
             ),
@@ -176,16 +178,17 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                         onPressed: controller.isBusy
                             ? null
                             : () {
+                                if (controller.isConnected) {
+                                  controller.disconnect();
+                                  return;
+                                }
+
                                 if (!controller.canConnect) {
                                   _showRenewDialog();
                                   return;
                                 }
 
-                                if (controller.isConnected) {
-                                  controller.disconnect();
-                                } else {
-                                  controller.connect();
-                                }
+                                controller.connect();
                               },
                         icon: Icon(
                           status == ConnectionStatus.connected

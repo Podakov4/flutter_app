@@ -112,9 +112,18 @@ class AuthApi {
       data['tokens'] as Map,
     );
 
+    final String? accessToken = tokens['access_token'] as String?;
+    final String? refreshToken = tokens['refresh_token'] as String?;
+
+    if (accessToken == null || refreshToken == null) {
+      throw StateError(
+        'Сервер вернул неполные токены: access=${accessToken == null ? 'null' : 'ok'}, refresh=${refreshToken == null ? 'null' : 'ok'}',
+      );
+    }
+
     await _tokenStorage.saveTokens(
-      accessToken: tokens['access_token'] as String,
-      refreshToken: tokens['refresh_token'] as String,
+      accessToken: accessToken,
+      refreshToken: refreshToken,
     );
   }
 }
