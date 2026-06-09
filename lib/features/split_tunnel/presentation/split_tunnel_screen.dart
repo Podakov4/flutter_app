@@ -24,6 +24,7 @@ class SplitTunnelScreen extends StatefulWidget {
 class _SplitTunnelScreenState extends State<SplitTunnelScreen> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
+  bool _showOnlySelected = false;
 
   @override
   void initState() {
@@ -46,17 +47,19 @@ class _SplitTunnelScreenState extends State<SplitTunnelScreen> {
     super.dispose();
   }
 
-  List<InstalledApp> get _filtered {
-    final List<InstalledApp> apps =
-        widget.splitTunnelController.installedApps;
-    if (_query.isEmpty) return apps;
-    return apps
-        .where(
-          (InstalledApp a) =>
-              a.name.toLowerCase().contains(_query) ||
-              a.packageName.toLowerCase().contains(_query),
-        )
-        .toList();
+  List<InstalledApp> _filtered(SplitTunnelController st) {
+    Iterable<InstalledApp> apps = st.installedApps;
+    if (_showOnlySelected) {
+      apps = apps.where((InstalledApp a) => st.isSelected(a.packageName));
+    }
+    if (_query.isNotEmpty) {
+      apps = apps.where(
+        (InstalledApp a) =>
+            a.name.toLowerCase().contains(_query) ||
+            a.packageName.toLowerCase().contains(_query),
+      );
+    }
+    return apps.toList();
   }
 
   @override
@@ -221,6 +224,23 @@ class _SplitTunnelScreenState extends State<SplitTunnelScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
+                            SegmentedButton<bool>(
+                              showSelectedIcon: false,
+                              segments: <ButtonSegment<bool>>[
+                                ButtonSegment<bool>(
+                                  value: false,
+                                  label: Text('Все (${st.installedApps.length})'),
+                                ),
+                                ButtonSegment<bool>(
+                                  value: true,
+                                  label: Text('Выбранные (${st.selectedPackages.length})'),
+                                ),
+                              ],
+                              selected: <bool>{_showOnlySelected},
+                              onSelectionChanged: (Set<bool> v) =>
+                                  setState(() => _showOnlySelected = v.first),
+                            ),
+                            const SizedBox(height: 8),
                             _buildAppList(st),
                           ],
                         ),
@@ -253,7 +273,7 @@ class _SplitTunnelScreenState extends State<SplitTunnelScreen> {
       );
     }
 
-    final List<InstalledApp> apps = _filtered;
+    final List<InstalledApp> apps = _filtered(st);
 
     if (apps.isEmpty) {
       return const Padding(
