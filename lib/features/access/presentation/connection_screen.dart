@@ -426,29 +426,10 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                               );
                             }),
                           const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: <Widget>[
-                              OutlinedButton.icon(
-                                onPressed: () => context.go('/logs'),
-                                icon: const Icon(Icons.notes_rounded),
-                                label: const Text('Открыть журнал'),
-                              ),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    controller.registerHealthFailure(),
-                                icon: const Icon(Icons.warning_amber_rounded),
-                                label: const Text('Тест сбоя'),
-                              ),
-                              TextButton.icon(
-                                onPressed: controller.registerHealthSuccess,
-                                icon: const Icon(
-                                  Icons.health_and_safety_outlined,
-                                ),
-                                label: const Text('Тест восстановления'),
-                              ),
-                            ],
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/logs'),
+                            icon: const Icon(Icons.notes_rounded),
+                            label: const Text('Открыть журнал'),
                           ),
                         ],
                       ),

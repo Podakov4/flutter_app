@@ -20,10 +20,10 @@ class AppShell extends StatelessWidget {
       selectedIcon: Icons.power_settings_new_rounded,
     ),
     _ShellDestination(
-      location: '/devices',
-      label: 'Устройства',
-      icon: Icons.devices_other_outlined,
-      selectedIcon: Icons.devices_other_rounded,
+      location: '/split-tunnel',
+      label: 'Приложения',
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view_rounded,
     ),
     _ShellDestination(
       location: '/profile',
@@ -55,6 +55,10 @@ class AppShell extends StatelessWidget {
 
     if (location == '/logs' || location.startsWith('/logs/')) {
       return 1;
+    }
+
+    if (location == '/devices' || location.startsWith('/devices/')) {
+      return 4;
     }
 
     return 0;

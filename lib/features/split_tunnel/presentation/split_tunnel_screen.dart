@@ -74,7 +74,7 @@ class _SplitTunnelScreenState extends State<SplitTunnelScreen> {
         final bool showApps = mode != SplitTunnelMode.all;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Раздельный тоннель')),
+          appBar: AppBar(title: const Text('VPN для приложений')),
           body: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
@@ -82,9 +82,9 @@ class _SplitTunnelScreenState extends State<SplitTunnelScreen> {
                 padding: const EdgeInsets.all(24),
                 children: <Widget>[
                   FreethHeroCard(
-                    title: 'Раздельный тоннель',
+                    title: 'VPN для приложений',
                     subtitle:
-                        'Выберите, для каких приложений работает Freeth VPN.',
+                        'Выберите, какие приложения используют Freeth VPN.',
                     badges: <Widget>[
                       StatusBadge(
                         label: mode.label,

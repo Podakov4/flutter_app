@@ -6,7 +6,6 @@ import '../../../core/models/connection_mode.dart';
 import '../../../core/models/connection_state.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../shared/widgets/freeth_action_card.dart';
 import '../../../shared/widgets/freeth_hero_card.dart';
 import '../../../shared/widgets/freeth_info_row.dart';
 import '../../../shared/widgets/freeth_mode_card.dart';
@@ -162,14 +161,6 @@ class _HomeScreenState extends State<HomeScreen> {
         final ClientProfile? client = widget.sessionController.client;
         final ConnectionController connection = widget.connectionController;
 
-        final String fullName = (client?.fullName?.trim().isNotEmpty == true)
-            ? client!.fullName!
-            : 'Пользователь';
-
-        final String email = AppFormatters.fallback(
-          client?.email,
-          empty: 'не указан',
-        );
         final String paidUntil = AppFormatters.dateTime(client?.paidUntil);
 
         final bool isActive = client?.isActive == true;
@@ -327,138 +318,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       toggleLabel: mode == ConnectionMode.smart
                           ? 'Переключить на ручной'
                           : 'Переключить на умный',
-                    ),
-                    const SizedBox(height: 16),
-                    const FreethSectionTitle(
-                      title: 'Быстрые действия',
-                      subtitle:
-                          'Основные сценарии без перегруженного интерфейса.',
-                    ),
-                    const SizedBox(height: 12),
-                    LayoutBuilder(
-                      builder: (BuildContext context, BoxConstraints constraints) {
-                        final bool compact = constraints.maxWidth < 560;
-
-                        return GridView.count(
-                          crossAxisCount: compact ? 1 : 2,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: compact ? 2.4 : 1.9,
-                          children: <Widget>[
-                            FreethActionCard(
-                              icon: Icons.power_settings_new_rounded,
-                              title: 'Подключение',
-                              subtitle:
-                                  'Локации, режим, технические данные и текущее состояние.',
-                              onTap: () => context.go('/access'),
-                            ),
-                            FreethActionCard(
-                              icon: Icons.notes_rounded,
-                              title: 'Журнал',
-                              subtitle:
-                                  'События подключения, предупреждения и восстановление канала.',
-                              onTap: () => context.go('/logs'),
-                            ),
-                            FreethActionCard(
-                              icon: Icons.devices_other_rounded,
-                              title: 'Устройства',
-                              subtitle:
-                                  'Управление подключёнными устройствами и лимитами.',
-                              onTap: () => context.go('/devices'),
-                            ),
-                            FreethActionCard(
-                              icon: Icons.workspace_premium_outlined,
-                              title: 'Подписка',
-                              subtitle:
-                                  'Статус доступа, срок действия и продление.',
-                              onTap: () => context.go('/subscription'),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const Text(
-                              'Последние события',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (connection.logs.isEmpty)
-                              const Text(
-                                'Журнал пока пуст. События появятся после подключения, смены режима или обновления конфигурации.',
-                              )
-                            else
-                              ...connection.logs.take(4).map((entry) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Text(
-                                    '[${entry.levelLabel}] ${entry.message}',
-                                    style: const TextStyle(height: 1.35),
-                                  ),
-                                );
-                              }),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: () => context.go('/logs'),
-                              icon: const Icon(Icons.open_in_new_rounded),
-                              label: const Text('Открыть журнал'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const Text(
-                              'Аккаунт',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            FreethInfoRow(label: 'Имя', value: fullName),
-                            const SizedBox(height: 8),
-                            FreethInfoRow(label: 'Email', value: email),
-                            const SizedBox(height: 16),
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: <Widget>[
-                                OutlinedButton.icon(
-                                  onPressed: () => context.go('/profile'),
-                                  icon: const Icon(
-                                    Icons.person_outline_rounded,
-                                  ),
-                                  label: const Text('Профиль'),
-                                ),
-                                TextButton.icon(
-                                  onPressed: () =>
-                                      widget.sessionController.logout(),
-                                  icon: const Icon(Icons.logout_rounded),
-                                  label: const Text('Выйти'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
                 ),

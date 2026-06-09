@@ -403,10 +403,10 @@ Created via: $createdVia
                           ),
                           const Divider(height: 24),
                           _NavTile(
-                            icon: Icons.tune_rounded,
-                            title: 'Раздельный тоннель',
+                            icon: Icons.grid_view_rounded,
+                            title: 'VPN для приложений',
                             subtitle:
-                                'Выберите, для каких приложений работает Freeth VPN.',
+                                'Выберите, какие приложения используют Freeth VPN.',
                             onTap: () => context.push('/split-tunnel'),
                           ),
                           const Divider(height: 24),
