@@ -147,6 +147,21 @@ class FreethVpnRuntime {
       settingsKv.encodeString('service_mode', 'vpn');
       settingsKv.encodeInt('selected_profile', id);
 
+      // flutter_sing_box reads these MMKV keys to configure OS-level per-app
+      // routing via addAllowedApplication / addDisallowedApplication.
+      if (splitTunnelConfig != null && splitTunnelConfig.isActive) {
+        final String packagesJson = jsonEncode(splitTunnelConfig.packages);
+        if (splitTunnelConfig.mode == SplitTunnelMode.includeOnly) {
+          settingsKv.encodeInt('per_app_proxy_mode', 1);
+          settingsKv.encodeString('per_app_proxy_include_list', packagesJson);
+        } else {
+          settingsKv.encodeInt('per_app_proxy_mode', 2);
+          settingsKv.encodeString('per_app_proxy_exclude_list', packagesJson);
+        }
+      } else {
+        settingsKv.encodeInt('per_app_proxy_mode', 0);
+      }
+
       try {
         await _singBox.stopVpn();
       } catch (_) {
