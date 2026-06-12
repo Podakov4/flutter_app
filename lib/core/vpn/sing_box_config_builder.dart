@@ -110,9 +110,12 @@ class SingBoxConfigBuilder {
       'server': vless.server,
       'server_port': vless.port,
       'uuid': vless.uuid,
-      'domain_strategy': 'ipv4_only',
-      'packet_encoding': 'xudp',
+      'domain_strategy': 'prefer_ipv4',
     };
+
+    if (vless.packetEncoding.isNotEmpty) {
+      outbound['packet_encoding'] = vless.packetEncoding;
+    }
 
     if (vless.flow.isNotEmpty) {
       outbound['flow'] = vless.flow;

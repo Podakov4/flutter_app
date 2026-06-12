@@ -59,6 +59,10 @@ class VlessUri {
     return value;
   }
 
+  // sing-box packet_encoding for UDP multiplexing (pd= param in VLESS URI).
+  // Empty string means not specified → don't set packet_encoding in config.
+  String get packetEncoding => query['pd']?.trim().toLowerCase() ?? '';
+
   bool get isTls => security == 'tls';
 
   bool get isWebSocket => type == 'ws' || type == 'websocket';
