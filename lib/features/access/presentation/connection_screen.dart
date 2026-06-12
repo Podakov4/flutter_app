@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/models/connection_mode.dart';
 import '../../../core/models/connection_state.dart';
@@ -28,6 +29,16 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     if (widget.connectionController.access == null &&
         !widget.connectionController.isLoading) {
       widget.connectionController.loadAccess();
+    }
+  }
+
+  Future<void> _openInHapp(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть happ')),
+      );
     }
   }
 
@@ -466,18 +477,29 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
                           const SizedBox(height: 10),
                           SelectableText(preferredHappUrl),
                           const SizedBox(height: 12),
-                          OutlinedButton(
-                            onPressed: () => _copyText(
-                              preferredHappUrl,
-                              hasEncryptedHappUrl
-                                  ? 'Ссылка для Happ'
-                                  : 'Подписочная ссылка',
-                            ),
-                            child: Text(
-                              hasEncryptedHappUrl
-                                  ? 'Копировать ссылку для Happ'
-                                  : 'Копировать подписку',
-                            ),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: <Widget>[
+                              FilledButton.icon(
+                                onPressed: () => _openInHapp(preferredHappUrl),
+                                icon: const Icon(Icons.open_in_new_rounded),
+                                label: const Text('Открыть в happ'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () => _copyText(
+                                  preferredHappUrl,
+                                  hasEncryptedHappUrl
+                                      ? 'Ссылка для Happ'
+                                      : 'Подписочная ссылка',
+                                ),
+                                child: Text(
+                                  hasEncryptedHappUrl
+                                      ? 'Копировать ссылку для Happ'
+                                      : 'Копировать подписку',
+                                ),
+                              ),
+                            ],
                           ),
                           if (hasEncryptedHappUrl &&
                               hasPlainSubscriptionUrl) ...<Widget>[

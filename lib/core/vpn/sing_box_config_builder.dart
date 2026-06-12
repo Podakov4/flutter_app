@@ -122,15 +122,20 @@ class SingBoxConfigBuilder {
     }
 
     if (vless.isTls) {
-      outbound['tls'] = <String, dynamic>{
+      final Map<String, dynamic> tls = <String, dynamic>{
         'enabled': true,
         'server_name': vless.sni ?? vless.hostHeader ?? vless.server,
         'insecure': false,
-        'utls': <String, dynamic>{
-          'enabled': true,
-          'fingerprint': vless.fingerprint ?? 'chrome',
-        },
       };
+
+      if (vless.fingerprint != null) {
+        tls['utls'] = <String, dynamic>{
+          'enabled': true,
+          'fingerprint': vless.fingerprint!,
+        };
+      }
+
+      outbound['tls'] = tls;
     }
 
     if (vless.isWebSocket) {

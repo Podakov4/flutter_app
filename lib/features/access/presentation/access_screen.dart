@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/access_api.dart';
 import '../../../core/models/access_info.dart';
@@ -59,6 +60,16 @@ class _AccessScreenState extends State<AccessScreen> {
     }
   }
 
+  Future<void> _openInHapp(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открыть happ')),
+      );
+    }
+  }
+
   Future<void> _copyText(String value, String label) async {
     await Clipboard.setData(ClipboardData(text: value));
 
@@ -98,6 +109,7 @@ class _AccessScreenState extends State<AccessScreen> {
       access?.subscriptionUrl,
     );
     final String manualUrl = AppFormatters.fallback(access?.manualUrl);
+    final String? happUrl = access?.preferredHappUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -184,6 +196,28 @@ class _AccessScreenState extends State<AccessScreen> {
                       child: const Text('Копировать'),
                     ),
             ),
+            if (happUrl != null) ...<Widget>[
+              const SizedBox(height: 12),
+              _InfoCard(
+                title: 'Открыть в happ',
+                value: happUrl,
+                selectable: true,
+                action: Row(
+                  children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: () => _openInHapp(happUrl),
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: const Text('Открыть в happ'),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: () => _copyText(happUrl, 'Ссылка happ'),
+                      child: const Text('Копировать'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
             FilledButton(onPressed: _load, child: const Text('Обновить')),
           ],
